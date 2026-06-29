@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>لوحة الإدارة</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+</head>
+
+<body>
+
+<header>
+
+<h1>لوحة إدارة Milan Hub</h1>
+
+</header>
+
+<main>
+
+<div class="card">
+
+<h2>إضافة مباراة</h2>
+
+<input id="home" placeholder="الفريق الأول">
+
+<input id="away" placeholder="الفريق الثاني">
+
+<input id="date" type="datetime-local">
+
+<input id="image" placeholder="رابط الصورة">
+
+<input id="full" placeholder="رابط المباراة الكاملة">
+
+<input id="highlight" placeholder="رابط الملخص">
+
+<button class="btn" onclick="addMatch()">
+
+حفظ المباراة
+
+</button>
+
+</div>
+
+<div class="card">
+
+<h2>إضافة فيديو</h2>
+
+<input id="title" placeholder="العنوان">
+
+<input id="thumb" placeholder="الصورة">
+
+<input id="url" placeholder="رابط الفيديو">
+
+<button class="btn" onclick="addVideo()">
+
+رفع الفيديو
+
+</button>
+
+</div>
+
+<div class="card">
+
+<h2>المحتويات</h2>
+
+<div id="adminList"></div>
+
+</div>
+
+</main>
+
+<script src="admin.js"></script>
+
+</body>
+
+</html>
