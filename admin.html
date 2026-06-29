@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0A0A0A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>لوحة تحكم ميلان</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --red:       #CC0000;
+  --red-deep:  #8B0000;
+  --red-soft:  rgba(204,0,0,0.12);
+  --black:     #0A0A0A;
+  --black-2:   #111111;
+  --black-3:   #181818;
+  --black-4:   #222222;
+  --black-5:   #2A2A2A;
+  --gold:      #C8A96E;
+  --gold-dim:  rgba(200,169,110,0.3);
+  --white:     #F0EBE0;
+  --white-dim: #888880;
+  --border:    rgba(200,169,110,0.15);
+  --border-2:  rgba(255,255,255,0.07);
+  --success:   #34C759;
+  --danger:    #FF3B30;
+  --warning:   #FF9500;
+  --radius:    14px;
+  --radius-sm: 8px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--black);
+  color: var(--white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════ */
+#loginScreen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(ellipse at top, rgba(139,0,0,0.2) 0%, var(--black) 65%);
+}
+
+.login-badge {
+  width: 72px; height: 72px;
+  background: linear-gradient(135deg, var(--red) 50%, var(--black-4) 50%);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 900; color: white;
+  box-shadow: 0 0 0 3px var(--gold), 0 8px 32px rgba(204,0,0,0.4);
+  margin-bottom: 20px;
+}
+
+.login-title {
+  font-size: 22px; font-weight: 900;
+  letter-spacing: 3px; color: var(--white);
+  margin-bottom: 6px; text-align: center;
+}
+.login-sub {
+  font-size: 12px; color: var(--gold);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 40px; text-align: center;
+}
+
+.login-box {
+  width: 100%; max-width: 360px;
+  background: var(--black-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+}
+
+.field-label {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: 8px; display: block;
+}
+
+.field-input {
+  width: 100%;
+  background: var(--black-4);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  color: var(--white);
+  font-size: 15px;
+  padding: 13px 14px;
+  outline: none;
+  transition: border-color .2s;
+  margin-bottom: 16px;
+  font-family: inherit;
+}
+.field-input:focus { border-color: var(--red); }
+
+.btn-login {
+  width: 100%;
+  background: linear-gradient(135deg, var(--red-deep), var(--red));
+  border: none; border-radius: var(--radius-sm);
+  color: white; font-size: 15px; font-weight: 800;
+  padding: 14px; cursor: pointer;
+  letter-spacing: 1px;
+  transition: opacity .2s;
+}
+.btn-login:active { opacity: 0.8; }
+
+.login-err {
+  background: rgba(255,59,48,0.12);
+  border: 1px solid rgba(255,59,48,0.3);
+  border-radius: var(--radius-sm);
+  color: #FF6B6B; font-size: 13px;
+  padding: 10px 14px; margin-top: 14px;
+  display: none; text-align: center;
+}
+
+/* ══════════════════════════════
+   MAIN APP
+══════════════════════════════ */
+#appScreen { display: none; min-height: 100vh; }
+
+/* TOP BAR */
+.topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(10,10,10,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.topbar-badge {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--red) 50%, #000 50%);
+  border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 900; color: white;
+  box-shadow: 0 0 0 2px var(--gold);
+}
+.topbar-info { flex: 1; }
+.topbar-title { font-size: 15px; font-weight: 800; letter-spacing: 1px; }
+.topbar-sub { font-size: 10px; color: var(--gold); letter-spacing: 2px; }
+.btn-logout {
+  background: rgba(255,59,48,0.1);
+  border: 1px solid rgba(255,59,48,0.25);
+  border-radius: 20px; color: #FF6B6B;
+  font-size: 11px; font-weight: 700;
+  padding: 5px 12px; cursor: pointer;
+  letter-spacing: 1px;
+}
+
+/* STATS ROW */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  gap: 8px; padding: 14px 16px;
+}
+.stat-card {
+  background: var(--black-3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 8px;
+  text-align: center;
+}
+.stat-num { font-size: 22px; font-weight: 900; color: var(--gold); line-height: 1; }
+.stat-lbl { font-size: 10px; color: var(--white-dim); margin-top: 4px; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: var(--black-2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-item {
+  flex: 1; background: none; border: none;
+  color: var(--white-dim); font-size: 10px; font-weight: 600;
+  padding: 10px 4px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; transition: color .15s;
+}
+.nav-item .ni { font-size: 20px; }
+.nav-item.active { color: var(--red); }
+
+/* SECTIONS */
+.page { display: none; padding: 0 16px 100px; animation: fadeUp .2s ease; }
+.page.active { display: block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* SECTION HEADER */
+.sec-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0 12px;
+}
+.sec-title {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--gold); font-weight: 800;
+  display: flex; align-items: center; gap: 8px;
+}
+.sec-title::before { content:''; width:3px; height:14px; background:var(--red); border-radius:2px; }
+
+.btn-add {
+  background: var(--red);
+  border: none; border-radius: 20px;
+  color: white; font-size: 12px; font-weight: 800;
+  padding: 7px 16px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  transition: opacity .15s;
+}
+.btn-add:active { opacity: 0.8; }
+
+/* CARDS */
+.item-card {
+  background: var(--black-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px; margin-bottom: 10px;
+  position: relative;
+}
+.item-card-title { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+.item-card-meta { font-size: 12px; color: var(--white-dim); }
+.item-actions {
+  display: flex; gap: 8px; margin-top: 12px;
+  padding-top: 10px; border-top: 1px solid var(--border-2);
+}
+.btn-edit {
+  flex: 1; background: rgba(200,169,110,0.1);
+  border: 1px solid rgba(200,169,110,0.25);
+  border-radius: var(--radius-sm); color: var(--gold);
+  font-size: 12px; font-weight: 700; padding: 8px;
+  cursor: pointer;
+}
+.btn-del {
+  flex: 1; background: rgba(255,59,48,0.1);
+  border: 1px solid rgba(255,59,48,0.25);
+  border-radius: var(--radius-sm); color: #FF6B6B;
+  font-size: 12px; font-weight: 700; padding: 8px;
+  cursor: pointer;
+}
+.badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  padding: 2px 8px; border-radius: 20px;
+}
+.badge-red { background: rgba(204,0,0,0.2); color: var(--red); border: 1px solid rgba(204,0,0,0.3); }
+.badge-green { background: rgba(52,199,89,0.15); color: var(--success); border: 1px solid rgba(52,199,89,0.25); }
+.badge-gold { background: rgba(200,169,110,0.15); color: var(--gold); border: 1px solid var(--gold-dim); }
+
+/* STATUS PILL */
+.status-upcoming { color: var(--white-dim); }
+.status-live { color: var(--danger); font-weight: 800; }
+.status-finished { color: var(--success); }
+
+/* EMPTY */
+.empty {
+  text-align: center; padding: 48px 20px;
+  color: var(--white-dim);
+}
+.empty-icon { font-size: 44px; margin-bottom: 12px; }
+.empty-text { font-size: 14px; }
+
+/* LOADER */
+.loader {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 40px 20px; color: var(--white-dim); font-size: 13px;
+}
+.spin {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--black-4); border-top-color: var(--red);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════
+   MODAL / BOTTOM SHEET
+══════════════════════════════ */
+.overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  display: none; align-items: flex-end; justify-content: center;
+}
+.overlay.open { display: flex; }
+
+.sheet {
+  background: var(--black-2);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 600px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 0 20px 32px;
+  animation: slideUp .25s ease;
+}
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+.sheet-handle {
+  width: 40px; height: 4px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px; margin: 14px auto 20px;
+}
+.sheet-title {
+  font-size: 18px; font-weight: 900;
+  color: var(--white); margin-bottom: 20px;
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+
+.form-row { margin-bottom: 16px; }
+.form-label {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: 8px; display: block;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--black-4);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  color: var(--white); font-size: 14px;
+  padding: 12px 14px; outline: none;
+  transition: border-color .2s;
+  font-family: inherit;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--red);
+}
+.form-select { appearance: none; cursor: pointer; }
+.form-textarea { resize: vertical; min-height: 90px; }
+
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.sheet-actions { display: flex; gap: 10px; margin-top: 24px; }
+.btn-cancel {
+  flex: 1; background: var(--black-4);
+  border: 1px solid var(--border-2); border-radius: var(--radius-sm);
+  color: var(--white-dim); font-size: 14px; font-weight: 700;
+  padding: 14px; cursor: pointer;
+}
+.btn-save {
+  flex: 2; background: linear-gradient(135deg, var(--red-deep), var(--red));
+  border: none; border-radius: var(--radius-sm);
+  color: white; font-size: 14px; font-weight: 800;
+  padding: 14px; cursor: pointer; transition: opacity .15s;
+}
+.btn-save:active { opacity: 0.8; }
+.btn-save:disabled { opacity: 0.5; }
+
+/* ══════════════════════════════
+   TOAST
+══════════════════════════════ */
+#toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  z-index: 999;
+  background: var(--black-4); border: 1px solid var(--border);
+  border-radius: 24px; padding: 10px 20px;
+  font-size: 13px; font-weight: 700; color: var(--white);
+  white-space: nowrap;
+  opacity: 0; transition: opacity .25s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; }
+#toast.success { border-color: rgba(52,199,89,0.4); color: var(--success); }
+#toast.error { border-color: rgba(255,59,48,0.4); color: #FF6B6B; }
+
+/* ══════════════════════════════
+   CONFIRM DIALOG
+══════════════════════════════ */
+#confirmOverlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.8);
+  display: none; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#confirmOverlay.open { display: flex; }
+.confirm-box {
+  background: var(--black-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; width: 100%; max-width: 320px;
+  text-align: center;
+}
+.confirm-icon { font-size: 36px; margin-bottom: 12px; }
+.confirm-title { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+.confirm-msg { font-size: 13px; color: var(--white-dim); margin-bottom: 20px; }
+.confirm-btns { display: flex; gap: 10px; }
+.btn-confirm-no {
+  flex: 1; background: var(--black-4); border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); color: var(--white-dim);
+  font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer;
+}
+.btn-confirm-yes {
+  flex: 1; background: var(--danger); border: none;
+  border-radius: var(--radius-sm); color: white;
+  font-size: 14px; font-weight: 800; padding: 12px; cursor: pointer;
+}
+
+/* TOGGLE */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--black-4); border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.toggle-label { font-size: 14px; color: var(--white); }
+.toggle {
+  width: 44px; height: 26px; background: var(--black-5);
+  border-radius: 13px; position: relative; cursor: pointer;
+  transition: background .2s; border: 1px solid var(--border-2);
+}
+.toggle.on { background: var(--red); }
+.toggle-knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: white; transition: transform .2s;
+}
+.toggle.on .toggle-knob { transform: translateX(18px); }
+
+/* IMAGE UPLOAD PREVIEW */
+.img-preview {
+  width: 100%; height: 120px;
+  background: var(--black-4); border: 2px dashed var(--border-2);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; position: relative; cursor: pointer;
+  margin-top: 8px; transition: border-color .2s;
+}
+.img-preview:hover { border-color: var(--red); }
+.img-preview img { width:100%; height:100%; object-fit:cover; }
+.img-preview .upload-hint { font-size: 13px; color: var(--white-dim); text-align:center; }
+.img-preview input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 2;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="loginScreen">
+  <div class="login-badge">M</div>
+  <div class="login-title">لوحة التحكم</div>
+  <div class="login-sub">AC Milan Admin Panel</div>
+  <div class="login-box">
+    <label class="field-label">كلمة المرور</label>
+    <input type="password" class="field-input" id="passInput" placeholder="أدخل كلمة المرور" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-login" onclick="doLogin()">🔓 دخول</button>
+    <div class="login-err" id="loginErr">كلمة المرور غلط، حاول مرة ثانية</div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div id="appScreen">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-badge">M</div>
+    <div class="topbar-info">
+      <div class="topbar-title">AC MILAN ADMIN</div>
+      <div class="topbar-sub">لوحة التحكم</div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">خروج</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="statMatches">-</div><div class="stat-lbl">مباريات</div></div>
+    <div class="stat-card"><div class="stat-num" id="statNews">-</div><div class="stat-lbl">أخبار</div></div>
+    <div class="stat-card"><div class="stat-num" id="statSummaries">-</div><div class="stat-lbl">ملخصات</div></div>
+    <div class="stat-card"><div class="stat-num" id="statChannels">-</div><div class="stat-lbl">قنوات</div></div>
+  </div>
+
+  <!-- PAGES -->
+
+  <!-- ── MATCHES PAGE ── -->
+  <div class="page active" id="pageMatches">
+    <div class="sec-header">
+      <div class="sec-title">⚽ المباريات</div>
+      <button class="btn-add" onclick="openMatchModal()">＋ إضافة</button>
+    </div>
+    <div id="matchesList"><div class="loader"><div class="spin"></div>جارٍ التحميل...</div></div>
+  </div>
+
+  <!-- ── NEWS PAGE ── -->
+  <div class="page" id="pageNews">
+    <div class="sec-header">
+      <div class="sec-title">📰 الأخبار</div>
+      <button class="btn-add" onclick="openNewsModal()">＋ إضافة</button>
+    </div>
+    <div id="newsList"><div class="loader"><div class="spin"></div>جارٍ التحميل...</div></div>
+  </div>
+
+  <!-- ── SUMMARIES PAGE ── -->
+  <div class="page" id="pageSummaries">
+    <div class="sec-header">
+      <div class="sec-title">🎬 الملخصات</div>
+      <button class="btn-add" onclick="openSummaryModal()">＋ إضافة</button>
+    </div>
+    <div id="summariesList"><div class="loader"><div class="spin"></div>جارٍ التحميل...</div></div>
+  </div>
+
+  <!-- ── CHANNELS PAGE ── -->
+  <div class="page" id="pageChannels">
+    <div class="sec-header">
+      <div class="sec-title">📡 القنوات</div>
+      <button class="btn-add" onclick="openChannelModal()">＋ إضافة</button>
+    </div>
+    <div id="channelsList"><div class="loader"><div class="spin"></div>جارٍ التحميل...</div></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-matches" onclick="switchPage('Matches')">
+      <span class="ni">⚽</span>مباريات
+    </button>
+    <button class="nav-item" id="nav-news" onclick="switchPage('News')">
+      <span class="ni">📰</span>أخبار
+    </button>
+    <button class="nav-item" id="nav-summaries" onclick="switchPage('Summaries')">
+      <span class="ni">🎬</span>ملخصات
+    </button>
+    <button class="nav-item" id="nav-channels" onclick="switchPage('Channels')">
+      <span class="ni">📡</span>قنوات
+    </button>
+  </nav>
+</div>
+
+<!-- ══ MATCH MODAL ══ -->
+<div class="overlay" id="matchOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="matchModalTitle">إضافة مباراة</div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">الفريق المضيف</label>
+        <input class="form-input" id="mHomeTeam" value="AC Milan">
+      </div>
+      <div class="form-row">
+        <label class="form-label">الفريق الضيف</label>
+        <input class="form-input" id="mAwayTeam" placeholder="اسم الفريق">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">تاريخ ووقت المباراة</label>
+      <input type="datetime-local" class="form-input" id="mDate">
+    </div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">البطولة</label>
+        <select class="form-select" id="mCompetition">
+          <option value="Serie A">Serie A</option>
+          <option value="Champions League">Champions League</option>
+          <option value="Coppa Italia">Coppa Italia</option>
+          <option value="Super Cup">Super Cup</option>
+          <option value="Friendly">Friendly</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">الحالة</label>
+        <select class="form-select" id="mStatus">
+          <option value="upcoming">قادمة</option>
+          <option value="live">مباشر</option>
+          <option value="finished">انتهت</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">هدف المضيف</label>
+        <input type="number" class="form-input" id="mHomeScore" placeholder="-" min="0">
+      </div>
+      <div class="form-row">
+        <label class="form-label">هدف الضيف</label>
+        <input type="number" class="form-input" id="mAwayScore" placeholder="-" min="0">
+      </div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">الملعب</label>
+        <input class="form-input" id="mVenue" value="San Siro">
+      </div>
+      <div class="form-row">
+        <label class="form-label">رقم الجولة</label>
+        <input type="number" class="form-input" id="mWeek" placeholder="مثل: 5" min="1">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeModal('matchOverlay')">إلغاء</button>
+      <button class="btn-save" id="matchSaveBtn" onclick="saveMatch()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEWS MODAL ══ -->
+<div class="overlay" id="newsOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="newsModalTitle">إضافة خبر</div>
+    <div class="form-row">
+      <label class="form-label">عنوان الخبر</label>
+      <input class="form-input" id="nTitle" placeholder="عنوان الخبر">
+    </div>
+    <div class="form-row">
+      <label class="form-label">محتوى الخبر</label>
+      <textarea class="form-textarea" id="nContent" placeholder="اكتب تفاصيل الخبر هنا..."></textarea>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">التصنيف</label>
+        <select class="form-select" id="nCategory">
+          <option value="general">عام</option>
+          <option value="match">مباراة</option>
+          <option value="transfer">انتقالات</option>
+          <option value="injury">إصابات</option>
+          <option value="training">تدريبات</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">رابط الصورة</label>
+        <input class="form-input" id="nImageUrl" placeholder="https://...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row" onclick="toggleFeatured()">
+        <span class="toggle-label">📌 خبر مميز (Featured)</span>
+        <div class="toggle" id="featuredToggle"><div class="toggle-knob"></div></div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeModal('newsOverlay')">إلغاء</button>
+      <button class="btn-save" id="newsSaveBtn" onclick="saveNews()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SUMMARY MODAL ══ -->
+<div class="overlay" id="summaryOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="summaryModalTitle">إضافة ملخص</div>
+    <div class="form-row">
+      <label class="form-label">عنوان الملخص</label>
+      <input class="form-input" id="sTitle" placeholder="مثل: ملخص ميلان ضد إنتر">
+    </div>
+    <div class="form-row">
+      <label class="form-label">اختر المباراة (اختياري)</label>
+      <select class="form-select" id="sMatchId">
+        <option value="">-- بدون ربط مباراة --</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">رابط الفيديو (YouTube/Drive)</label>
+      <input class="form-input" id="sVideoUrl" placeholder="https://youtube.com/...">
+    </div>
+    <div class="form-row">
+      <label class="form-label">رابط الصورة المصغرة</label>
+      <input class="form-input" id="sThumbnail" placeholder="https://...">
+    </div>
+    <div class="form-row">
+      <label class="form-label">وصف (اختياري)</label>
+      <textarea class="form-textarea" id="sContent" placeholder="وصف قصير للملخص..." style="min-height:70px"></textarea>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeModal('summaryOverlay')">إلغاء</button>
+      <button class="btn-save" id="summarySaveBtn" onclick="saveSummary()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHANNEL MODAL ══ -->
+<div class="overlay" id="channelOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="channelModalTitle">إضافة قناة / رابط</div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">الاسم</label>
+        <input class="form-input" id="cName" placeholder="اسم القناة">
+      </div>
+      <div class="form-row">
+        <label class="form-label">الأيقونة (Emoji)</label>
+        <input class="form-input" id="cIcon" placeholder="📢" maxlength="4">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">الرابط</label>
+      <input class="form-input" id="cUrl" placeholder="https://t.me/...">
+    </div>
+    <div class="form-row">
+      <label class="form-label">الوصف (اختياري)</label>
+      <input class="form-input" id="cDesc" placeholder="وصف قصير">
+    </div>
+    <div class="form-grid-2">
+      <div class="form-row">
+        <label class="form-label">النوع</label>
+        <select class="form-select" id="cCategory">
+          <option value="channel">قناة</option>
+          <option value="group">مجموعة</option>
+          <option value="social">تواصل اجتماعي</option>
+          <option value="website">موقع</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">الترتيب</label>
+        <input type="number" class="form-input" id="cOrder" placeholder="1" min="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row" onclick="toggleChannelActive()">
+        <span class="toggle-label">✅ نشط (مرئي في التطبيق)</span>
+        <div class="toggle on" id="channelActiveToggle"><div class="toggle-knob"></div></div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeModal('channelOverlay')">إلغاء</button>
+      <button class="btn-save" id="channelSaveBtn" onclick="saveChannel()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">🗑</div>
+    <div class="confirm-title">تأكيد الحذف</div>
+    <div class="confirm-msg" id="confirmMsg">هل أنت متأكد من الحذف؟</div>
+    <div class="confirm-btns">
+      <button class="btn-confirm-no" onclick="closeConfirm()">إلغاء</button>
+      <button class="btn-confirm-yes" id="confirmYesBtn">حذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════
+// CONFIG
+// ══════════════════════════════
+const SUPABASE_URL = 'https://ckriyvqnrzravknajckl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_rFMfYa3nWxyxp6_zYUdtCw_znCYEKfV';
+const ADMIN_PASS   = 'milan2526'; // ← غيّر كلمة المرور هنا
+
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════
+// LOGIN
+// ══════════════════════════════
+function doLogin() {
+  const pass = document.getElementById('passInput').value;
+  if (pass === ADMIN_PASS) {
+    sessionStorage.setItem('admin_auth', '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('passInput').value = '';
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('admin_auth');
+  location.reload();
+}
+
+// Auto-login if session exists
+if (sessionStorage.getItem('admin_auth')) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  window.addEventListener('DOMContentLoaded', initApp);
+}
+
+// ══════════════════════════════
+// NAVIGATION
+// ══════════════════════════════
+let currentPage = 'Matches';
+
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page' + name).classList.add('active');
+  document.getElementById('nav-' + name.toLowerCase()).classList.add('active');
+  currentPage = name;
+}
+
+// ══════════════════════════════
+// TOAST
+// ══════════════════════════════
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 2800);
+}
+
+// ══════════════════════════════
+// CONFIRM
+// ══════════════════════════════
+let confirmCallback = null;
+function showConfirm(msg, cb) {
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmOverlay').classList.add('open');
+  confirmCallback = cb;
+  document.getElementById('confirmYesBtn').onclick = () => { closeConfirm(); cb(); };
+}
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  confirmCallback = null;
+}
+
+// ══════════════════════════════
+// MODAL HELPERS
+// ══════════════════════════════
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+// Close on backdrop click
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+async function initApp() {
+  loadStats();
+  loadMatches();
+  loadNews();
+  loadSummaries();
+  loadChannels();
+  setupRealtime();
+}
+
+async function loadStats() {
+  try {
+    const [m, n, s, c] = await Promise.all([
+      db.from('matches').select('id', {count:'exact', head:true}),
+      db.from('news').select('id', {count:'exact', head:true}),
+      db.from('summaries').select('id', {count:'exact', head:true}),
+      db.from('channels').select('id', {count:'exact', head:true}),
+    ]);
+    document.getElementById('statMatches').textContent   = m.count ?? 0;
+    document.getElementById('statNews').textContent      = n.count ?? 0;
+    document.getElementById('statSummaries').textContent = s.count ?? 0;
+    document.getElementById('statChannels').textContent  = c.count ?? 0;
+  } catch(e) {}
+}
+
+function setupRealtime() {
+  db.channel('admin-realtime')
+    .on('postgres_changes', {event:'*', schema:'public'}, () => {
+      loadStats();
+      loadMatches();
+      loadNews();
+      loadSummaries();
+      loadChannels();
+    }).subscribe();
+}
+
+// ══════════════════════════════
+// MATCHES
+// ══════════════════════════════
+let matchesData = [];
+let editMatchId = null;
+
+async function loadMatches() {
+  const el = document.getElementById('matchesList');
+  try {
+    const { data, error } = await db.from('matches').select('*').order('match_date', {ascending: false});
+    if (error) throw error;
+    matchesData = data || [];
+    if (!matchesData.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">⚽</div><div class="empty-text">لا توجد مباريات بعد</div></div>';
+      return;
+    }
+    el.innerHTML = matchesData.map(m => {
+      const d = new Date(m.match_date);
+      const dateStr = d.toLocaleDateString('ar-SA', {day:'numeric', month:'short', year:'numeric'});
+      const timeStr = d.toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'});
+      const statusMap = {upcoming:'قادمة 📅', live:'🔴 مباشر', finished:'انتهت ✅'};
+      const statusClass = {upcoming:'status-upcoming', live:'status-live', finished:'status-finished'};
+      const scoreStr = m.status !== 'upcoming' ? `${m.home_score ?? 0} - ${m.away_score ?? 0}` : 'VS';
+      return `
+        <div class="item-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div>
+              <div class="item-card-title">${m.home_team} <span style="color:var(--white-dim);font-size:13px">${scoreStr}</span> ${m.away_team}</div>
+              <div class="item-card-meta">📅 ${dateStr} · ${timeStr}</div>
+              <div class="item-card-meta" style="margin-top:4px">🏆 ${m.competition} ${m.match_week ? '· الجولة ' + m.match_week : ''}</div>
+            </div>
+            <span class="${statusClass[m.status]}" style="font-size:12px;font-weight:700;flex-shrink:0">${statusMap[m.status]}</span>
+          </div>
+          <div class="item-actions">
+            <button class="btn-edit" onclick="openMatchModal('${m.id}')">✏️ تعديل</button>
+            <button class="btn-del" onclick="deleteMatch('${m.id}')">🗑 حذف</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">تعذر التحميل</div></div>';
+  }
+}
+
+function openMatchModal(id = null) {
+  editMatchId = id;
+  document.getElementById('matchModalTitle').textContent = id ? '✏️ تعديل مباراة' : '➕ إضافة مباراة';
+  if (id) {
+    const m = matchesData.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('mHomeTeam').value    = m.home_team || 'AC Milan';
+    document.getElementById('mAwayTeam').value    = m.away_team || '';
+    document.getElementById('mDate').value        = m.match_date ? m.match_date.slice(0,16) : '';
+    document.getElementById('mCompetition').value = m.competition || 'Serie A';
+    document.getElementById('mStatus').value      = m.status || 'upcoming';
+    document.getElementById('mHomeScore').value   = m.home_score ?? '';
+    document.getElementById('mAwayScore').value   = m.away_score ?? '';
+    document.getElementById('mVenue').value       = m.venue || 'San Siro';
+    document.getElementById('mWeek').value        = m.match_week || '';
+  } else {
+    document.getElementById('mHomeTeam').value    = 'AC Milan';
+    document.getElementById('mAwayTeam').value    = '';
+    document.getElementById('mDate').value        = '';
+    document.getElementById('mCompetition').value = 'Serie A';
+    document.getElementById('mStatus').value      = 'upcoming';
+    document.getElementById('mHomeScore').value   = '';
+    document.getElementById('mAwayScore').value   = '';
+    document.getElementById('mVenue').value       = 'San Siro';
+    document.getElementById('mWeek').value        = '';
+  }
+  openModal('matchOverlay');
+}
+
+async function saveMatch() {
+  const btn = document.getElementById('matchSaveBtn');
+  const awayTeam = document.getElementById('mAwayTeam').value.trim();
+  const date     = document.getElementById('mDate').value;
+  if (!awayTeam) { showToast('أدخل اسم الفريق الضيف', 'error'); return; }
+  if (!date)     { showToast('أدخل تاريخ المباراة', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+  const payload = {
+    home_team:   document.getElementById('mHomeTeam').value.trim(),
+    away_team:   awayTeam,
+    match_date:  new Date(date).toISOString(),
+    competition: document.getElementById('mCompetition').value,
+    status:      document.getElementById('mStatus').value,
+    home_score:  document.getElementById('mHomeScore').value !== '' ? parseInt(document.getElementById('mHomeScore').value) : null,
+    away_score:  document.getElementById('mAwayScore').value !== '' ? parseInt(document.getElementById('mAwayScore').value) : null,
+    venue:       document.getElementById('mVenue').value.trim(),
+    match_week:  document.getElementById('mWeek').value ? parseInt(document.getElementById('mWeek').value) : null,
+  };
+
+  try {
+    let err;
+    if (editMatchId) {
+      ({ error: err } = await db.from('matches').update(payload).eq('id', editMatchId));
+    } else {
+      ({ error: err } = await db.from('matches').insert(payload));
+    }
+    if (err) throw err;
+    closeModal('matchOverlay');
+    showToast(editMatchId ? '✅ تم تعديل المباراة' : '✅ تمت إضافة المباراة');
+    loadMatches(); loadStats();
+  } catch(e) {
+    showToast('❌ خطأ: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = '💾 حفظ';
+}
+
+async function deleteMatch(id) {
+  showConfirm('سيتم حذف المباراة وملخصاتها نهائياً', async () => {
+    try {
+      const { error } = await db.from('matches').delete().eq('id', id);
+      if (error) throw error;
+      showToast('🗑 تم حذف المباراة');
+      loadMatches(); loadStats();
+    } catch(e) { showToast('❌ ' + e.message, 'error'); }
+  });
+}
+
+// ══════════════════════════════
+// NEWS
+// ══════════════════════════════
+let newsData = [];
+let editNewsId = null;
+let featuredVal = false;
+
+function toggleFeatured() {
+  featuredVal = !featuredVal;
+  const t = document.getElementById('featuredToggle');
+  t.classList.toggle('on', featuredVal);
+}
+
+async function loadNews() {
+  const el = document.getElementById('newsList');
+  try {
+    const { data, error } = await db.from('news').select('*').order('published_at', {ascending: false});
+    if (error) throw error;
+    newsData = data || [];
+    if (!newsData.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📰</div><div class="empty-text">لا توجد أخبار بعد</div></div>';
+      return;
+    }
+    const catLabel = {general:'عام', match:'مباراة', transfer:'انتقالات', injury:'إصابات', training:'تدريبات'};
+    el.innerHTML = newsData.map(n => {
+      const d = new Date(n.published_at).toLocaleDateString('ar-SA', {day:'numeric', month:'short'});
+      return `
+        <div class="item-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="flex:1">
+              <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+                <span class="badge badge-red">${catLabel[n.category] || n.category}</span>
+                ${n.is_featured ? '<span class="badge badge-gold">📌 مميز</span>' : ''}
+              </div>
+              <div class="item-card-title">${n.title}</div>
+              <div class="item-card-meta">🕐 ${d}</div>
+            </div>
+          </div>
+          <div class="item-actions">
+            <button class="btn-edit" onclick="openNewsModal('${n.id}')">✏️ تعديل</button>
+            <button class="btn-del" onclick="deleteNews('${n.id}')">🗑 حذف</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">تعذر التحميل</div></div>';
+  }
+}
+
+function openNewsModal(id = null) {
+  editNewsId = id;
+  document.getElementById('newsModalTitle').textContent = id ? '✏️ تعديل خبر' : '➕ إضافة خبر';
+  if (id) {
+    const n = newsData.find(x => x.id === id);
+    if (!n) return;
+    document.getElementById('nTitle').value     = n.title || '';
+    document.getElementById('nContent').value   = n.content || '';
+    document.getElementById('nCategory').value  = n.category || 'general';
+    document.getElementById('nImageUrl').value  = n.image_url || '';
+    featuredVal = n.is_featured || false;
+  } else {
+    document.getElementById('nTitle').value     = '';
+    document.getElementById('nContent').value   = '';
+    document.getElementById('nCategory').value  = 'general';
+    document.getElementById('nImageUrl').value  = '';
+    featuredVal = false;
+  }
+  document.getElementById('featuredToggle').classList.toggle('on', featuredVal);
+  openModal('newsOverlay');
+}
+
+async function saveNews() {
+  const btn = document.getElementById('newsSaveBtn');
+  const title   = document.getElementById('nTitle').value.trim();
+  const content = document.getElementById('nContent').value.trim();
+  if (!title)   { showToast('أدخل عنوان الخبر', 'error'); return; }
+  if (!content) { showToast('أدخل محتوى الخبر', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+  const payload = {
+    title, content,
+    category:    document.getElementById('nCategory').value,
+    image_url:   document.getElementById('nImageUrl').value.trim() || null,
+    is_featured: featuredVal,
+    published_at: new Date().toISOString(),
+  };
+
+  try {
+    let err;
+    if (editNewsId) {
+      ({ error: err } = await db.from('news').update(payload).eq('id', editNewsId));
+    } else {
+      ({ error: err } = await db.from('news').insert(payload));
+    }
+    if (err) throw err;
+    closeModal('newsOverlay');
+    showToast(editNewsId ? '✅ تم تعديل الخبر' : '✅ تمت إضافة الخبر');
+    loadNews(); loadStats();
+  } catch(e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = '💾 حفظ';
+}
+
+async function deleteNews(id) {
+  showConfirm('سيتم حذف هذا الخبر نهائياً', async () => {
+    try {
+      const { error } = await db.from('news').delete().eq('id', id);
+      if (error) throw error;
+      showToast('🗑 تم حذف الخبر');
+      loadNews(); loadStats();
+    } catch(e) { showToast('❌ ' + e.message, 'error'); }
+  });
+}
+
+// ══════════════════════════════
+// SUMMARIES
+// ══════════════════════════════
+let summariesData = [];
+let editSummaryId = null;
+
+async function loadSummaries() {
+  const el = document.getElementById('summariesList');
+  try {
+    const { data, error } = await db.from('summaries')
+      .select('*, matches(home_team, away_team, home_score, away_score)')
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    summariesData = data || [];
+    if (!summariesData.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🎬</div><div class="empty-text">لا توجد ملخصات بعد</div></div>';
+      return;
+    }
+    el.innerHTML = summariesData.map(s => {
+      const m = s.matches;
+      const matchInfo = m ? `${m.home_team} ${m.home_score ?? ''}-${m.away_score ?? ''} ${m.away_team}` : 'بدون مباراة';
+      return `
+        <div class="item-card">
+          <div class="item-card-title">${s.title}</div>
+          <div class="item-card-meta">⚽ ${matchInfo}</div>
+          ${s.video_url ? `<div class="item-card-meta" style="margin-top:4px">🎬 <a href="${s.video_url}" target="_blank" style="color:var(--gold)">رابط الفيديو</a></div>` : ''}
+          <div class="item-actions">
+            <button class="btn-edit" onclick="openSummaryModal('${s.id}')">✏️ تعديل</button>
+            <button class="btn-del" onclick="deleteSummary('${s.id}')">🗑 حذف</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">تعذر التحميل</div></div>';
+  }
+}
+
+function openSummaryModal(id = null) {
+  editSummaryId = id;
+  document.getElementById('summaryModalTitle').textContent = id ? '✏️ تعديل ملخص' : '➕ إضافة ملخص';
+
+  // Populate match select
+  const sel = document.getElementById('sMatchId');
+  sel.innerHTML = '<option value="">-- بدون ربط مباراة --</option>';
+  matchesData.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.home_team} vs ${m.away_team}`;
+    sel.appendChild(opt);
+  });
+
+  if (id) {
+    const s = summariesData.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('sTitle').value     = s.title || '';
+    document.getElementById('sMatchId').value   = s.match_id || '';
+    document.getElementById('sVideoUrl').value  = s.video_url || '';
+    document.getElementById('sThumbnail').value = s.thumbnail_url || '';
+    document.getElementById('sContent').value   = s.content || '';
+  } else {
+    document.getElementById('sTitle').value     = '';
+    document.getElementById('sMatchId').value   = '';
+    document.getElementById('sVideoUrl').value  = '';
+    document.getElementById('sThumbnail').value = '';
+    document.getElementById('sContent').value   = '';
+  }
+  openModal('summaryOverlay');
+}
+
+async function saveSummary() {
+  const btn = document.getElementById('summarySaveBtn');
+  const title = document.getElementById('sTitle').value.trim();
+  if (!title) { showToast('أدخل عنوان الملخص', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+  const matchId = document.getElementById('sMatchId').value;
+  const payload = {
+    title,
+    match_id:      matchId || null,
+    video_url:     document.getElementById('sVideoUrl').value.trim() || null,
+    thumbnail_url: document.getElementById('sThumbnail').value.trim() || null,
+    content:       document.getElementById('sContent').value.trim() || null,
+  };
+
+  try {
+    let err;
+    if (editSummaryId) {
+      ({ error: err } = await db.from('summaries').update(payload).eq('id', editSummaryId));
+    } else {
+      ({ error: err } = await db.from('summaries').insert(payload));
+    }
+    if (err) throw err;
+    closeModal('summaryOverlay');
+    showToast(editSummaryId ? '✅ تم تعديل الملخص' : '✅ تمت إضافة الملخص');
+    loadSummaries(); loadStats();
+  } catch(e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = '💾 حفظ';
+}
+
+async function deleteSummary(id) {
+  showConfirm('سيتم حذف هذا الملخص نهائياً', async () => {
+    try {
+      const { error } = await db.from('summaries').delete().eq('id', id);
+      if (error) throw error;
+      showToast('🗑 تم حذف الملخص');
+      loadSummaries(); loadStats();
+    } catch(e) { showToast('❌ ' + e.message, 'error'); }
+  });
+}
+
+// ══════════════════════════════
+// CHANNELS
+// ══════════════════════════════
+let channelsData = [];
+let editChannelId = null;
+let channelActiveVal = true;
+
+function toggleChannelActive() {
+  channelActiveVal = !channelActiveVal;
+  document.getElementById('channelActiveToggle').classList.toggle('on', channelActiveVal);
+}
+
+async function loadChannels() {
+  const el = document.getElementById('channelsList');
+  try {
+    const { data, error } = await db.from('channels').select('*').order('sort_order');
+    if (error) throw error;
+    channelsData = data || [];
+    if (!channelsData.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">لا توجد قنوات بعد</div></div>';
+      return;
+    }
+    const catLabel = {channel:'قناة', group:'مجموعة', social:'تواصل اجتماعي', website:'موقع'};
+    el.innerHTML = channelsData.map(c => `
+      <div class="item-card">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:26px">${c.icon || '📢'}</div>
+          <div style="flex:1">
+            <div style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap;align-items:center">
+              <span class="item-card-title" style="margin:0">${c.name}</span>
+              <span class="badge ${c.is_active ? 'badge-green' : ''}" style="${!c.is_active ? 'background:rgba(136,136,128,0.1);color:var(--white-dim);border:1px solid var(--border-2)' : ''}">${c.is_active ? '✅ نشط' : '⛔ مخفي'}</span>
+            </div>
+            <div class="item-card-meta">${catLabel[c.category] || c.category} · ${c.url.substring(0,30)}...</div>
+          </div>
+        </div>
+        <div class="item-actions">
+          <button class="btn-edit" onclick="openChannelModal('${c.id}')">✏️ تعديل</button>
+          <button class="btn-del" onclick="deleteChannel('${c.id}')">🗑 حذف</button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">تعذر التحميل</div></div>';
+  }
+}
+
+function openChannelModal(id = null) {
+  editChannelId = id;
+  document.getElementById('channelModalTitle').textContent = id ? '✏️ تعديل قناة' : '➕ إضافة قناة';
+  if (id) {
+    const c = channelsData.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('cName').value     = c.name || '';
+    document.getElementById('cIcon').value     = c.icon || '📢';
+    document.getElementById('cUrl').value      = c.url || '';
+    document.getElementById('cDesc').value     = c.description || '';
+    document.getElementById('cCategory').value = c.category || 'channel';
+    document.getElementById('cOrder').value    = c.sort_order ?? 0;
+    channelActiveVal = c.is_active !== false;
+  } else {
+    document.getElementById('cName').value     = '';
+    document.getElementById('cIcon').value     = '📢';
+    document.getElementById('cUrl').value      = '';
+    document.getElementById('cDesc').value     = '';
+    document.getElementById('cCategory').value = 'channel';
+    document.getElementById('cOrder').value    = channelsData.length + 1;
+    channelActiveVal = true;
+  }
+  document.getElementById('channelActiveToggle').classList.toggle('on', channelActiveVal);
+  openModal('channelOverlay');
+}
+
+async function saveChannel() {
+  const btn = document.getElementById('channelSaveBtn');
+  const name = document.getElementById('cName').value.trim();
+  const url  = document.getElementById('cUrl').value.trim();
+  if (!name) { showToast('أدخل اسم القناة', 'error'); return; }
+  if (!url)  { showToast('أدخل رابط القناة', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+  const payload = {
+    name, url,
+    icon:        document.getElementById('cIcon').value || '📢',
+    description: document.getElementById('cDesc').value.trim() || null,
+    category:    document.getElementById('cCategory').value,
+    sort_order:  parseInt(document.getElementById('cOrder').value) || 0,
+    is_active:   channelActiveVal,
+  };
+
+  try {
+    let err;
+    if (editChannelId) {
+      ({ error: err } = await db.from('channels').update(payload).eq('id', editChannelId));
+    } else {
+      ({ error: err } = await db.from('channels').insert(payload));
+    }
+    if (err) throw err;
+    closeModal('channelOverlay');
+    showToast(editChannelId ? '✅ تم تعديل القناة' : '✅ تمت إضافة القناة');
+    loadChannels(); loadStats();
+  } catch(e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = '💾 حفظ';
+}
+
+async function deleteChannel(id) {
+  showConfirm('سيتم حذف هذه القناة نهائياً', async () => {
+    try {
+      const { error } = await db.from('channels').delete().eq('id', id);
+      if (error) throw error;
+      showToast('🗑 تم حذف القناة');
+      loadChannels(); loadStats();
+    } catch(e) { showToast('❌ ' + e.message, 'error'); }
+  });
+}
+</script>
+</body>
+</html>
