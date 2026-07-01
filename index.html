@@ -55,41 +55,48 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
 
 /* ===== البنر ===== */
-.banner-wrap{position:relative;margin:12px 14px;border-radius:16px;overflow:hidden;aspect-ratio:16/8.2;background:var(--card);}
+.banner-wrap{position:relative;margin:12px 14px;border-radius:18px;overflow:hidden;aspect-ratio:16/9;background:var(--card);box-shadow:0 10px 30px -12px rgba(0,0,0,.6);}
 .banner-wrap img{width:100%;height:100%;object-fit:cover;}
-.banner-tag{position:absolute;top:10px;right:10px;background:var(--live);color:#fff;font-size:11px;font-weight:800;
-  padding:4px 10px;border-radius:6px;display:flex;align-items:center;gap:5px;}
-.banner-tag.upn{background:rgba(0,0,0,.65);}
+.banner-tag{position:absolute;top:12px;right:12px;background:var(--live);color:#fff;font-size:11px;font-weight:800;
+  padding:5px 12px;border-radius:7px;display:flex;align-items:center;gap:5px;letter-spacing:.3px;}
+.banner-tag.upn{background:rgba(20,20,20,.75);backdrop-filter:blur(4px);}
 .bdot{width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1.6s ease-in-out infinite;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
-.banner-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85),transparent 55%);}
-.banner-label{position:absolute;bottom:10px;right:12px;left:12px;font-size:13px;font-weight:700;color:#fff;
+.banner-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.92) 2%,rgba(0,0,0,.55) 32%,transparent 65%);}
+.banner-title{position:absolute;bottom:34px;right:14px;left:14px;font-size:19px;font-weight:800;color:#fff;line-height:1.35;
+  text-shadow:0 2px 10px rgba(0,0,0,.5);}
+.banner-label{position:absolute;bottom:12px;right:14px;left:14px;font-size:12px;font-weight:700;color:#d9d9d9;
   display:flex;align-items:center;gap:6px;}
-.banner-label svg{width:14px;height:14px;fill:var(--acc2);flex-shrink:0;}
+.banner-label svg{width:13px;height:13px;fill:var(--acc2);flex-shrink:0;}
 
 /* ===== صفوف الفئات ===== */
-.cat-block{margin:18px 0;}
+.cat-block{margin:20px 0;}
 .cat-head{display:flex;align-items:center;justify-content:space-between;padding:0 14px;margin-bottom:10px;}
 .cat-title{font-size:15px;font-weight:800;}
 .cat-title::before{content:'';display:inline-block;width:4px;height:14px;background:var(--acc);border-radius:3px;margin-left:7px;vertical-align:-2px;}
-.cat-scroll{display:flex;gap:10px;overflow-x:auto;padding:0 14px;}
-.match-card{flex-shrink:0;width:170px;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);}
+.cat-scroll{display:flex;gap:11px;overflow-x:auto;padding:0 14px 4px;}
+.match-card{flex-shrink:0;width:180px;border-radius:14px;overflow:hidden;background:var(--card);border:1px solid var(--border);
+  box-shadow:0 6px 18px -10px rgba(0,0,0,.7);}
 .match-card .thumb{position:relative;width:100%;aspect-ratio:16/9;background:#000;}
 .match-card .thumb img{width:100%;height:100%;object-fit:cover;}
-.mini-tag{position:absolute;top:6px;right:6px;background:var(--live);color:#fff;font-size:9px;font-weight:800;
-  padding:2px 6px;border-radius:5px;display:flex;align-items:center;gap:3px;}
-.mini-tag.upn{background:rgba(0,0,0,.7);}
+.mini-tag{position:absolute;top:7px;right:7px;background:var(--live);color:#fff;font-size:9px;font-weight:800;
+  padding:3px 7px;border-radius:6px;display:flex;align-items:center;gap:3px;}
+.mini-tag.upn{background:rgba(15,15,15,.78);backdrop-filter:blur(3px);}
 .mini-tag .bdot{width:4px;height:4px;}
-.match-card .foot{padding:8px 9px;display:flex;align-items:center;justify-content:space-between;}
+.card-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.95) 5%,rgba(0,0,0,.35) 55%,transparent 80%);}
+.card-title{position:absolute;bottom:6px;right:8px;left:8px;font-size:12.5px;font-weight:700;color:#fff;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+.match-card .foot{padding:7px 9px;display:flex;align-items:center;justify-content:space-between;}
 .match-card .comp{font-size:10px;color:var(--mute);}
 .empty-note{padding:20px 14px;color:var(--mute);font-size:13px;text-align:center;}
 
 /* ===== قائمة المباريات السابقة ===== */
 .fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 14px;}
-.fin-item .thumb{position:relative;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--card);border:1px solid var(--border);}
+.fin-item .thumb{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);}
 .fin-item .thumb img{width:100%;height:100%;object-fit:cover;}
-.round-badge{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.72);color:#fff;font-size:10px;font-weight:800;
+.round-badge{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.75);color:#fff;font-size:10px;font-weight:800;
   padding:3px 8px;border-radius:6px;}
+.fin-item .card-title{font-size:12px;bottom:7px;}
 
 /* ===== النافبار السفلي ===== */
 .nav-bar{position:absolute;bottom:0;left:0;right:0;height:64px;background:var(--card);border-top:1px solid var(--border);
@@ -152,9 +159,11 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
 .tab-btn{flex:1;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);
   font-size:13px;font-weight:800;color:var(--mute);text-align:center;}
 .tab-btn.active{background:var(--acc);color:#fff;border-color:var(--acc);}
-.teams-row{display:flex;align-items:center;justify-content:center;gap:22px;padding:16px 0;}
-.team-col{display:flex;flex-direction:column;align-items:center;gap:8px;width:96px;}
-.team-col img{width:52px;height:52px;border-radius:50%;object-fit:cover;background:var(--card2);}
+.teams-row{display:flex;align-items:center;justify-content:center;gap:26px;padding:18px 0 8px;}
+.team-col{display:flex;flex-direction:column;align-items:center;gap:9px;width:100px;}
+.team-col .logo-holder{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle,#1f1f1f,#141414);
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--border);flex-shrink:0;overflow:hidden;}
+.team-col .logo-holder img{width:78%;height:78%;object-fit:contain;}
 .team-col span{font-size:12px;font-weight:700;text-align:center;line-height:1.3;}
 .vs-txt{font-size:13px;font-weight:900;color:var(--mute);}
 .match-meta{text-align:center;font-size:11px;color:var(--mute);margin-top:-6px;margin-bottom:6px;}
@@ -314,7 +323,21 @@ async function openClub(club){
   document.getElementById('finCrest').outerHTML = crestImg(club,30,'finCrest');
   show('screenHome');
   showTab('home');
+  loadClubLogo(club);
   await loadHome();
+}
+async function loadClubLogo(club){
+  const { data } = await sb.from('club_settings').select('logo_url').eq('club', club).single();
+  const url = data && data.logo_url;
+  if (!url) return;
+  ['homeCrest','finCrest'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url; img.alt=''; img.className='top-crest';
+    img.onerror = ()=>{}; // يبقى الحرف كما هو إذا فشل تحميل الشعار
+    img.onload = ()=>{ el.replaceWith(img); img.id = id; };
+  });
 }
 function backToClubs(){ show('screenClubs'); }
 function showTab(tab){
@@ -341,6 +364,11 @@ function fmtKickoff(iso){
 }
 
 /* ============== بطاقة مباراة ============== */
+function matchTitle(m){
+  if (m.title && m.title.trim()) return m.title.trim();
+  if (m.home_team || m.away_team) return `${m.home_team||''}${m.home_team&&m.away_team?' - ':''}${m.away_team||''}`;
+  return '';
+}
 function matchCard(m){
   const tag = m.status==='live'
     ? `<div class="mini-tag"><span class="bdot"></span> مباشر</div>`
@@ -348,8 +376,9 @@ function matchCard(m){
       ? `<div class="mini-tag upn">${fmtKickoff(m.kickoff_at)}</div>`
       : '';
   const thumb = m.thumbnail_url || '';
+  const title = escapeHtml(matchTitle(m));
   return `<div class="match-card" onclick="openPlayer('${m.id}')">
-    <div class="thumb">${thumb?`<img src="${thumb}" alt="">`:''}${tag}</div>
+    <div class="thumb">${thumb?`<img src="${thumb}" alt="">`:''}<div class="card-grad"></div>${tag}${title?`<div class="card-title">${title}</div>`:''}</div>
     <div class="foot"><span class="comp">${escapeHtml(m.competition||'')}</span></div>
   </div>`;
 }
@@ -378,6 +407,7 @@ function renderHome(){
       ${banner.thumbnail_url?`<img src="${banner.thumbnail_url}" alt="">`:''}
       <div class="banner-grad"></div>
       <div class="banner-tag ${isLive?'':'upn'}">${isLive?'<span class="bdot"></span> مباشر الآن':fmtKickoff(banner.kickoff_at)}</div>
+      <div class="banner-title">${escapeHtml(matchTitle(banner))}</div>
       <div class="banner-label"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>${escapeHtml(banner.competition||'')}</div>
     </div>`;
   }
@@ -420,8 +450,9 @@ async function loadFinished(){
   }
   document.getElementById('finGrid').innerHTML = state.finished.map(m=>`
     <div class="fin-item" onclick="openPlayer('${m.id}')">
-      <div class="thumb">${m.thumbnail_url?`<img src="${m.thumbnail_url}" alt="">`:''}
+      <div class="thumb">${m.thumbnail_url?`<img src="${m.thumbnail_url}" alt="">`:''}<div class="card-grad"></div>
         ${m.round?`<div class="round-badge">الجولة ${escapeHtml(m.round)}</div>`:''}
+        ${matchTitle(m)?`<div class="card-title">${escapeHtml(matchTitle(m))}</div>`:''}
       </div>
     </div>`).join('');
 }
@@ -478,9 +509,9 @@ function renderBelowPlayer(){
   }
 
   html += `<div class="teams-row">
-    <div class="team-col"><img src="${m.home_logo||''}" onerror="this.style.opacity=0.15"><span>${escapeHtml(m.home_team||'')}</span></div>
+    <div class="team-col"><div class="logo-holder"><img src="${m.home_logo||''}" onerror="this.parentElement.style.opacity=0.25"></div><span>${escapeHtml(m.home_team||'')}</span></div>
     <div class="vs-txt">VS</div>
-    <div class="team-col"><img src="${m.away_logo||''}" onerror="this.style.opacity=0.15"><span>${escapeHtml(m.away_team||'')}</span></div>
+    <div class="team-col"><div class="logo-holder"><img src="${m.away_logo||''}" onerror="this.parentElement.style.opacity=0.25"></div><span>${escapeHtml(m.away_team||'')}</span></div>
   </div>`;
   if (m.competition || m.round){
     html += `<div class="match-meta">${escapeHtml(m.competition||'')}${m.round?' · الجولة '+escapeHtml(m.round):''}</div>`;
@@ -524,11 +555,15 @@ let hlsInst=null;
 const video = ()=>document.getElementById('mainVideo');
 let isPlayingState=false, isMuted=false, isFull=false, ctrlTimer=null;
 
-function showPlaceholder(msg){
+function showPlaceholder(msg, showRetry){
   const p=document.getElementById('playerPlaceholder');
-  p.querySelector('span').textContent = msg;
+  p.innerHTML = showRetry
+    ? `<span>${msg}</span><button onclick="retryCurrentSource()" style="margin-top:6px;padding:8px 18px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;">إعادة المحاولة</button>`
+    : `<div class="spinner"></div><span>${msg}</span>`;
   p.classList.remove('hide');
 }
+let lastUrl = null;
+function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl); }
 function hidePlaceholder(){ document.getElementById('playerPlaceholder').classList.add('hide'); }
 
 function resetPlayerUI(){
@@ -545,6 +580,7 @@ function destroyPlayer(){
 }
 
 function loadSource(url){
+  lastUrl = url;
   destroyPlayer();
   showPlaceholder('جارِ تحميل البث…');
   const m = state.currentMatch;
@@ -555,29 +591,42 @@ function loadSource(url){
   document.getElementById('btnBack10').style.display = isLive ? 'none':'flex';
   document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
 
-  if (/\.m3u8(\?|$)/i.test(url)){
+  if (!url){ showPlaceholder('لا يوجد رابط لهذا السيرفر', true); return; }
+
+  if (/\.m3u8(\?|#|$)/i.test(url)){
     const v = video();
     if (window.Hls && Hls.isSupported()){
       hlsInst = new Hls({ enableWorker:true });
       hlsInst.loadSource(url);
       hlsInst.attachMedia(v);
       hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{ hidePlaceholder(); v.play().catch(()=>{}); });
-      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{ if(data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط، جرّب سيرفر آخر'); });
+      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{ if(data.fatal) showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true); });
     } else if (v.canPlayType('application/vnd.apple.mpegurl')){
       v.src = url;
       v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
+      v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true), {once:true});
     } else {
       showEmbed(url);
     }
-  } else if (/\.(mp4|webm|ogv|mov)(\?|$)/i.test(url)){
-    const v = video();
-    v.src = url;
-    v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
-    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط، جرّب سيرفر آخر'), {once:true});
+  } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)){
+    playNative(url, true);
   } else {
-    showEmbed(url);
+    // رابط بدون امتداد واضح: جرّب تشغيله كفيديو مباشر أولاً، وإن فشل ننتقل لعرضه كصفحة مضمّنة (iframe)
+    playNative(url, false);
   }
   bindVideoEvents();
+}
+function playNative(url, isFinalAttempt){
+  const v = video();
+  v.src = url;
+  const onOk = ()=>{ hidePlaceholder(); v.play().catch(()=>{}); v.removeEventListener('error', onErr); };
+  const onErr = ()=>{
+    v.removeEventListener('loadedmetadata', onOk);
+    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true); }
+    else { showEmbed(url); }
+  };
+  v.addEventListener('loadedmetadata', onOk, {once:true});
+  v.addEventListener('error', onErr, {once:true});
 }
 function showEmbed(url){
   hidePlaceholder();
