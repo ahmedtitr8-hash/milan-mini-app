@@ -9,6 +9,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.matches (
   id             uuid primary key default gen_random_uuid(),
   club           text not null check (club in ('milan','barca')),
+  title          text default '',
   home_team      text not null default '',
   away_team      text not null default '',
   home_logo      text default '',
@@ -44,6 +45,13 @@ create table if not exists public.match_related (
   related_match_id uuid not null references public.matches(id) on delete cascade,
   sort_order       int default 0
 );
+
+-- ---------- إعدادات شعار كل نادٍ (يضبطها الأدمن مرة واحدة) ----------
+create table if not exists public.club_settings (
+  club     text primary key check (club in ('milan','barca')),
+  logo_url text default ''
+);
+insert into public.club_settings (club) values ('milan'),('barca') on conflict do nothing;
 
 create index if not exists idx_matches_club on public.matches(club);
 create index if not exists idx_matches_status on public.matches(status);
@@ -85,4 +93,11 @@ create policy "public read related" on public.match_related for select using (tr
 drop policy if exists "public write related" on public.match_related;
 drop policy if exists "auth write related" on public.match_related;
 create policy "auth write related" on public.match_related for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table public.club_settings enable row level security;
+drop policy if exists "public read club_settings" on public.club_settings;
+create policy "public read club_settings" on public.club_settings for select using (true);
+drop policy if exists "auth write club_settings" on public.club_settings;
+create policy "auth write club_settings" on public.club_settings for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
