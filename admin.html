@@ -62,8 +62,32 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
 .badge.finished{background:#2a2a2a;color:var(--mute);}
 .mrow .acts{display:flex;gap:6px;}
 .section-title{font-size:14px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;justify-content:between;}
-.sub-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
-.sub-row{display:grid;grid-template-columns:110px 1fr 1fr 70px 34px;gap:8px;align-items:center;}
+.sub-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.src-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px;}
+.src-card .src-top{display:flex;gap:8px;margin-bottom:8px;}
+.src-card .src-top select{width:110px;flex-shrink:0;}
+.src-card .src-top input{flex:1;}
+.src-card .src-bottom{display:flex;gap:8px;align-items:center;}
+.src-card .src-bottom input{flex:1;}
+.src-card .src-bottom input[type=number]{max-width:70px;flex:none;}
+.src-card .del-btn{width:34px;height:34px;flex-shrink:0;border-radius:8px;background:var(--danger);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;}
+
+.thumb-preview{width:100%;aspect-ratio:16/9;border-radius:10px;background:var(--card2);border:1px solid var(--border);
+  margin-top:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:11px;}
+.thumb-preview img{width:100%;height:100%;object-fit:cover;}
+.form-section{border-top:1px solid var(--border);margin-top:18px;padding-top:14px;}
+.form-section h4{font-size:13px;font-weight:800;color:var(--acc);margin-bottom:12px;}
+.stats-row{display:flex;gap:10px;margin:14px 0;}
+.stat-box{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;}
+.stat-box b{font-size:20px;display:block;}
+.stat-box span{font-size:11px;color:var(--mute);}
+.filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.filter-chip{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--mute);}
+.filter-chip.active{background:var(--acc);color:#fff;border-color:var(--acc);}
+.club-logo-box{display:flex;gap:10px;align-items:center;margin-bottom:18px;background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px;}
+.club-logo-box img{width:40px;height:40px;object-fit:contain;border-radius:50%;background:var(--card2);flex-shrink:0;}
+.club-logo-box .field{flex:1;margin-bottom:0;}
 .chk-list{display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;}
 .chk-item{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--card2);padding:6px 10px;border-radius:8px;}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;
@@ -109,6 +133,20 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     <button class="btn secondary" onclick="doLogout()">تسجيل خروج</button>
   </div>
   <div class="wrap">
+    <div class="club-logo-box">
+      <img id="clubLogoPreview" src="" onerror="this.style.opacity=0">
+      <div class="field"><label>شعار النادي (رابط صورة تظهر بأعلى الميني تطبيق)</label><input id="clubLogoInput" placeholder="https://..."></div>
+      <button class="btn secondary small" onclick="saveClubLogo()">حفظ</button>
+    </div>
+
+    <div class="stats-row" id="statsRow"></div>
+    <div class="filter-row" id="filterRow">
+      <div class="filter-chip active" data-f="all" onclick="setFilter('all')">الكل</div>
+      <div class="filter-chip" data-f="live" onclick="setFilter('live')">مباشرة</div>
+      <div class="filter-chip" data-f="upcoming" onclick="setFilter('upcoming')">قادمة</div>
+      <div class="filter-chip" data-f="finished" onclick="setFilter('finished')">منتهية</div>
+    </div>
+
     <button class="btn" onclick="openMatchModal(null)">+ إضافة مباراة جديدة</button>
     <div class="section-title">المباريات</div>
     <div class="mlist" id="mlist"><p style="color:var(--mute)">جارِ التحميل…</p></div>
@@ -121,54 +159,71 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     <span class="close-x" onclick="closeMatchModal()">✕</span>
     <h3 id="modalTitle">إضافة مباراة</h3>
 
-    <div class="row2">
-      <div class="field"><label>الفريق المستضيف (اسم)</label><input id="f_home_team"></div>
-      <div class="field"><label>الفريق الضيف (اسم)</label><input id="f_away_team"></div>
+    <div class="field">
+      <label>عنوان المباراة (يظهر كنص فوق الصورة داخل التطبيق — لا تكتب الاسم داخل الصورة نفسها)</label>
+      <input id="f_title" placeholder="مثال: ميلان × إنتر - الديربي">
     </div>
-    <div class="row2">
-      <div class="field"><label>شعار الفريق المستضيف (رابط صورة)</label><input id="f_home_logo"></div>
-      <div class="field"><label>شعار الفريق الضيف (رابط صورة)</label><input id="f_away_logo"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>البطولة</label><input id="f_competition" placeholder="الدوري الإيطالي..."></div>
-      <div class="field"><label>الجولة (تظهر في قائمة السابقة)</label><input id="f_round" placeholder="مثال: 24"></div>
-    </div>
-    <div class="row3">
-      <div class="field"><label>الحالة</label>
-        <select id="f_status">
-          <option value="live">مباشرة الآن</option>
-          <option value="upcoming">قادمة</option>
-          <option value="finished">منتهية</option>
-        </select>
+
+    <div class="form-section"><h4>الفريقان</h4>
+      <div class="row2">
+        <div class="field"><label>الفريق المستضيف (اسم)</label><input id="f_home_team"></div>
+        <div class="field"><label>الفريق الضيف (اسم)</label><input id="f_away_team"></div>
       </div>
-      <div class="field"><label>نوع البث</label>
-        <select id="f_type">
-          <option value="live">بث مباشر</option>
-          <option value="vod">فيديو مسجل</option>
-        </select>
-      </div>
-      <div class="field"><label>وقت الانطلاق</label><input type="datetime-local" id="f_kickoff"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>صورة المباراة (تحتوي الاسم مكتوب داخلها)</label><input id="f_thumb" placeholder="https://..."></div>
-      <div class="field"><label>الفئة (تظهر كصف تلقائي في الرئيسية، اتركها فارغة لإخفائها)</label><input id="f_category" placeholder="أبرز المباريات / ملخصات..."></div>
-    </div>
-    <div class="row3">
-      <div class="field"><label>ترتيب الفئة (رقم أصغر = أول)</label><input type="number" id="f_catorder" value="0"></div>
-      <div class="field"><label>ترتيب داخل القائمة</label><input type="number" id="f_sort" value="0"></div>
-      <div class="field" style="display:flex;align-items:end;gap:8px;padding-bottom:6px;">
-        <input type="checkbox" id="f_banner" style="width:auto;"> <label style="margin:0;">إظهار في البنر العلوي</label>
+      <div class="row2">
+        <div class="field"><label>شعار الفريق المستضيف (رابط صورة)</label><input id="f_home_logo"></div>
+        <div class="field"><label>شعار الفريق الضيف (رابط صورة)</label><input id="f_away_logo"></div>
       </div>
     </div>
 
-    <div id="sourcesSection" class="hide">
-      <div class="section-title" id="sourcesTitle">السيرفرات</div>
+    <div class="form-section"><h4>البطولة والتوقيت</h4>
+      <div class="row2">
+        <div class="field"><label>البطولة</label><input id="f_competition" placeholder="الدوري الإيطالي..."></div>
+        <div class="field"><label>الجولة (تظهر في قائمة السابقة)</label><input id="f_round" placeholder="مثال: 24"></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>الحالة</label>
+          <select id="f_status">
+            <option value="live">مباشرة الآن</option>
+            <option value="upcoming">قادمة</option>
+            <option value="finished">منتهية</option>
+          </select>
+        </div>
+        <div class="field"><label>نوع البث</label>
+          <select id="f_type">
+            <option value="live">بث مباشر</option>
+            <option value="vod">فيديو مسجل</option>
+          </select>
+        </div>
+        <div class="field"><label>وقت الانطلاق</label><input type="datetime-local" id="f_kickoff"></div>
+      </div>
+    </div>
+
+    <div class="form-section"><h4>الصورة والفئة</h4>
+      <div class="field">
+        <label>صورة المباراة (رابط صورة عادية — العنوان يظهر تلقائيًا فوقها من الحقل أعلاه)</label>
+        <input id="f_thumb" placeholder="https://..." oninput="updateThumbPreview()">
+        <div class="thumb-preview" id="thumbPreview">لا توجد صورة بعد</div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>الفئة (تظهر كصف تلقائي في الرئيسية، اتركها فارغة لإخفائها)</label><input id="f_category" placeholder="أبرز المباريات / ملخصات..."></div>
+        <div class="field"><label>ترتيب الفئة (رقم أصغر = أول)</label><input type="number" id="f_catorder" value="0"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>ترتيب داخل القائمة</label><input type="number" id="f_sort" value="0"></div>
+        <div class="field" style="display:flex;align-items:end;gap:8px;padding-bottom:6px;">
+          <input type="checkbox" id="f_banner" style="width:auto;"> <label style="margin:0;">إظهار في البنر العلوي</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section" id="sourcesSection">
+      <h4 id="sourcesTitle">السيرفرات</h4>
       <div class="sub-list" id="sourcesList"></div>
       <button class="btn secondary small" onclick="addSourceRow()">+ إضافة سيرفر</button>
     </div>
 
-    <div id="relatedSection" class="hide">
-      <div class="section-title">مباريات أخرى تظهر أسفل هذا الفيديو</div>
+    <div class="form-section" id="relatedSection">
+      <h4>مباريات أخرى تظهر أسفل هذا الفيديو</h4>
       <div class="chk-list" id="relatedList"></div>
     </div>
 
@@ -243,7 +298,20 @@ function enterClub(club){
   document.getElementById('panel').style.display='block';
   document.getElementById('topCrest').textContent = club==='milan' ? 'M':'B';
   document.getElementById('topTitle').textContent = CLUB_NAMES[club];
+  loadClubLogo();
   loadMatches();
+}
+async function loadClubLogo(){
+  const { data } = await sb.from('club_settings').select('logo_url').eq('club', currentClub).single();
+  document.getElementById('clubLogoInput').value = (data && data.logo_url) || '';
+  document.getElementById('clubLogoPreview').src = (data && data.logo_url) || '';
+}
+async function saveClubLogo(){
+  const url = document.getElementById('clubLogoInput').value.trim();
+  const { error } = await sb.from('club_settings').upsert({ club: currentClub, logo_url: url });
+  if (error){ toast('تعذر الحفظ: '+error.message, true); return; }
+  document.getElementById('clubLogoPreview').src = url;
+  toast('تم حفظ شعار النادي');
 }
 function switchClub(){
   sessionStorage.removeItem('zoneClub');
@@ -252,31 +320,64 @@ function switchClub(){
 }
 
 /* ===== تحميل المباريات ===== */
+let currentFilter = 'all';
 async function loadMatches(){
   document.getElementById('mlist').innerHTML = '<p style="color:var(--mute)">جارِ التحميل…</p>';
   const { data, error } = await sb.from('matches').select('*').eq('club', currentClub)
     .order('status').order('sort_order');
   if (error){ document.getElementById('mlist').innerHTML = '<p style="color:var(--danger)">تعذر التحميل: '+error.message+'</p>'; return; }
   matches = data || [];
+  renderStats();
+  renderMatchList();
+}
+function renderStats(){
+  const c = { live:0, upcoming:0, finished:0 };
+  matches.forEach(m=>{ if(c[m.status]!==undefined) c[m.status]++; });
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-box"><b>${c.live}</b><span>مباشرة</span></div>
+    <div class="stat-box"><b>${c.upcoming}</b><span>قادمة</span></div>
+    <div class="stat-box"><b>${c.finished}</b><span>منتهية</span></div>`;
+}
+function setFilter(f){
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.toggle('active', c.dataset.f===f));
   renderMatchList();
 }
 function statusLabel(s){ return s==='live'?'مباشرة':s==='upcoming'?'قادمة':'منتهية'; }
 function renderMatchList(){
-  if (!matches.length){ document.getElementById('mlist').innerHTML = '<p style="color:var(--mute)">لا توجد مباريات بعد</p>'; return; }
-  document.getElementById('mlist').innerHTML = matches.map(m=>`
+  const list = currentFilter==='all' ? matches : matches.filter(m=>m.status===currentFilter);
+  if (!list.length){ document.getElementById('mlist').innerHTML = '<p style="color:var(--mute)">لا توجد مباريات هنا</p>'; return; }
+  document.getElementById('mlist').innerHTML = list.map(m=>`
     <div class="mrow">
       <img src="${m.thumbnail_url||''}" onerror="this.style.opacity=0">
       <div class="info">
-        <b>${escapeHtml(m.home_team||'—')} ${m.away_team?('vs '+escapeHtml(m.away_team)):''}</b>
+        <b>${escapeHtml(m.title || ((m.home_team||'—')+(m.away_team?(' vs '+m.away_team):'')))}</b>
         <small>${escapeHtml(m.competition||'')} ${m.round?(' · الجولة '+escapeHtml(m.round)):''} · ${m.type==='live'?'بث مباشر':'فيديو مسجل'}</small>
       </div>
       <span class="badge ${m.status}">${statusLabel(m.status)}</span>
       <div class="acts">
         <button class="btn secondary small" onclick="openMatchModal('${m.id}')">تعديل</button>
+        <button class="btn secondary small" onclick="duplicateMatch('${m.id}')">تكرار</button>
       </div>
     </div>`).join('');
 }
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function duplicateMatch(id){
+  const m = matches.find(x=>x.id===id);
+  if (!m) return;
+  const copy = { ...m };
+  delete copy.id; delete copy.created_at;
+  copy.title = (copy.title||'') + ' (نسخة)';
+  const { data, error } = await sb.from('matches').insert(copy).select().single();
+  if (error){ toast('تعذر التكرار: '+error.message, true); return; }
+  const { data:srcs } = await sb.from('match_sources').select('*').eq('match_id', id);
+  if (srcs && srcs.length){
+    await sb.from('match_sources').insert(srcs.map(s=>({ match_id: data.id, tab:s.tab, label:s.label, url:s.url, sort_order:s.sort_order })));
+  }
+  toast('تم إنشاء نسخة من المباراة');
+  loadMatches();
+}
 
 /* ===== نافذة المباراة ===== */
 function openMatchModal(id){
@@ -285,6 +386,7 @@ function openMatchModal(id){
   document.getElementById('modalTitle').textContent = id ? 'تعديل المباراة' : 'إضافة مباراة';
   document.getElementById('btnDeleteMatch').classList.toggle('hide', !id);
 
+  document.getElementById('f_title').value = m?.title || '';
   document.getElementById('f_home_team').value = m?.home_team || '';
   document.getElementById('f_away_team').value = m?.away_team || '';
   document.getElementById('f_home_logo').value = m?.home_logo || '';
@@ -299,6 +401,7 @@ function openMatchModal(id){
   document.getElementById('f_catorder').value = m?.category_order || 0;
   document.getElementById('f_sort').value = m?.sort_order || 0;
   document.getElementById('f_banner').checked = !!m?.is_banner;
+  updateThumbPreview();
 
   updateTypeSections();
   document.getElementById('f_type').onchange = updateTypeSections;
@@ -314,6 +417,11 @@ function toLocalInput(iso){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function closeMatchModal(){ document.getElementById('matchModalBg').classList.remove('on'); }
+function updateThumbPreview(){
+  const url = document.getElementById('f_thumb').value.trim();
+  const box = document.getElementById('thumbPreview');
+  box.innerHTML = url ? `<img src="${url}" onerror="this.parentElement.textContent='تعذر تحميل الصورة، تأكد من الرابط'">` : 'لا توجد صورة بعد';
+}
 
 function updateTypeSections(){
   const type = document.getElementById('f_type').value;
@@ -339,12 +447,16 @@ function renderSourceRows(){
     ? `<option value="live">مباشر</option>`
     : `<option value="full">كاملة</option><option value="highlight">ملخص</option>`;
   document.getElementById('sourcesList').innerHTML = sourceRows.map((s,i)=>`
-    <div class="sub-row">
-      <select onchange="sourceRows[${i}].tab=this.value">${tabOptions.replace('value="'+s.tab+'"','value="'+s.tab+'" selected')}</select>
-      <input placeholder="اسم السيرفر" value="${escapeHtml(s.label)}" onchange="sourceRows[${i}].label=this.value">
-      <input placeholder="رابط m3u8 / mp4 / embed" value="${escapeHtml(s.url)}" onchange="sourceRows[${i}].url=this.value">
-      <input type="number" value="${s.sort_order}" onchange="sourceRows[${i}].sort_order=parseInt(this.value)||0">
-      <button class="btn danger small" onclick="removeSourceRow(${i})">✕</button>
+    <div class="src-card">
+      <div class="src-top">
+        <select onchange="sourceRows[${i}].tab=this.value">${tabOptions.replace('value="'+s.tab+'"','value="'+s.tab+'" selected')}</select>
+        <input placeholder="اسم السيرفر (مثال: سيرفر 1)" value="${escapeHtml(s.label)}" onchange="sourceRows[${i}].label=this.value">
+      </div>
+      <div class="src-bottom">
+        <input placeholder="رابط m3u8 / mp4 / embed" value="${escapeHtml(s.url)}" onchange="sourceRows[${i}].url=this.value">
+        <input type="number" title="الترتيب" value="${s.sort_order}" onchange="sourceRows[${i}].sort_order=parseInt(this.value)||0">
+        <div class="del-btn" onclick="removeSourceRow(${i})">✕</div>
+      </div>
     </div>`).join('') || '<p style="color:var(--mute);font-size:12px;">لا توجد سيرفرات، اضغط "إضافة سيرفر"</p>';
 }
 function removeSourceRow(i){ sourceRows.splice(i,1); renderSourceRows(); }
@@ -361,7 +473,7 @@ function renderRelatedChecklist(selected){
   document.getElementById('relatedList').innerHTML = others.map(m=>`
     <label class="chk-item">
       <input type="checkbox" value="${m.id}" ${selected.includes(m.id)?'checked':''}>
-      ${escapeHtml(m.home_team||'')} ${m.away_team?('- '+escapeHtml(m.away_team)):''}
+      ${escapeHtml(m.title || ((m.home_team||'')+(m.away_team?(' - '+m.away_team):'')))}
     </label>`).join('');
 }
 
@@ -369,6 +481,7 @@ function renderRelatedChecklist(selected){
 async function saveMatch(){
   const payload = {
     club: currentClub,
+    title: val('f_title'),
     home_team: val('f_home_team'), away_team: val('f_away_team'),
     home_logo: val('f_home_logo'), away_logo: val('f_away_logo'),
     competition: val('f_competition'), round: val('f_round'),
