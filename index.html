@@ -50,6 +50,25 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .top-crest{width:30px;height:30px;border-radius:50%;flex-shrink:0;}
 .top-title{font-size:16px;font-weight:800;flex:1;}
 .top-zone{font-size:12px;font-weight:800;color:var(--acc);letter-spacing:1px;}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:0 10px;margin:0 14px 4px;height:0;overflow:hidden;transition:height .2s,margin .2s;}
+.search-box.on{height:40px;margin:10px 14px 4px;}
+.search-box svg{width:16px;height:16px;fill:var(--mute);flex-shrink:0;}
+.search-box input{flex:1;background:none;border:none;color:var(--txt);font-size:13px;height:100%;padding:0;}
+.search-box input:focus{outline:none;}
+.play-dot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
+.match-card:active .play-dot,.banner-wrap:active .play-dot{opacity:1;}
+.play-dot .circ{width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.7);}
+.play-dot svg{width:16px;height:16px;fill:#fff;}
+.banner-wrap .play-dot .circ{width:56px;height:56px;}
+.banner-wrap .play-dot svg{width:22px;height:22px;}
+.banner-carousel{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:12px 0;padding:0 14px;}
+.banner-carousel .banner-wrap{scroll-snap-align:start;flex:0 0 100%;margin:0;}
+.banner-dots{display:flex;justify-content:center;gap:5px;margin-top:8px;}
+.banner-dots .dot{width:5px;height:5px;border-radius:50%;background:var(--border);transition:.2s;}
+.banner-dots .dot.on{width:16px;border-radius:4px;background:var(--acc);}
+.cat-head .see-all{font-size:11px;color:var(--mute);font-weight:700;}
 
 /* ===== محتوى قابل للتمرير ===== */
 .scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
@@ -202,7 +221,14 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
       </button>
       <img class="top-crest" id="homeCrest" src="" alt="">
       <div class="top-title" id="homeTitle">النادي</div>
+      <button class="icon-btn" onclick="toggleSearch()">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+      </button>
       <div class="top-zone">ZONE</div>
+    </div>
+    <div class="search-box" id="searchBox">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+      <input id="searchInput" placeholder="ابحث عن مباراة..." oninput="renderHome()">
     </div>
     <div class="scroll-area" id="homeScroll">
       <div id="homeContent"></div>
@@ -378,7 +404,10 @@ function matchCard(m){
   const thumb = m.thumbnail_url || '';
   const title = escapeHtml(matchTitle(m));
   return `<div class="match-card" onclick="openPlayer('${m.id}')">
-    <div class="thumb">${thumb?`<img src="${thumb}" alt="">`:''}<div class="card-grad"></div>${tag}${title?`<div class="card-title">${title}</div>`:''}</div>
+    <div class="thumb">${thumb?`<img src="${thumb}" alt="">`:''}<div class="card-grad"></div>${tag}
+      <div class="play-dot"><div class="circ"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+      ${title?`<div class="card-title">${title}</div>`:''}
+    </div>
     <div class="foot"><span class="comp">${escapeHtml(m.competition||'')}</span></div>
   </div>`;
 }
@@ -395,21 +424,37 @@ async function loadHome(){
   renderHome();
 }
 function renderHome(){
-  const list = state.matches;
+  const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+  let list = state.matches;
+  if (q){
+    list = list.filter(m => matchTitle(m).toLowerCase().includes(q) || (m.competition||'').toLowerCase().includes(q));
+  }
   let html = '';
 
-  // البنر: مباشر أولاً وإلا القادم المعلّم is_banner وإلا أول قادم
-  let banner = list.find(m=>m.status==='live' && m.is_banner) || list.find(m=>m.status==='live')
-            || list.find(m=>m.is_banner) || list.find(m=>m.status==='upcoming');
-  if (banner){
-    const isLive = banner.status==='live';
-    html += `<div class="banner-wrap" onclick="openPlayer('${banner.id}')">
-      ${banner.thumbnail_url?`<img src="${banner.thumbnail_url}" alt="">`:''}
-      <div class="banner-grad"></div>
-      <div class="banner-tag ${isLive?'':'upn'}">${isLive?'<span class="bdot"></span> مباشر الآن':fmtKickoff(banner.kickoff_at)}</div>
-      <div class="banner-title">${escapeHtml(matchTitle(banner))}</div>
-      <div class="banner-label"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>${escapeHtml(banner.competition||'')}</div>
-    </div>`;
+  if (!q){
+    // البنر: كاروسيل لكل المباريات المعلّمة is_banner (مباشرة أولاً)، وإلا آخر مباراة مباشرة أو قادمة
+    let banners = list.filter(m=>m.is_banner);
+    if (!banners.length){
+      const fallback = list.find(m=>m.status==='live') || list.find(m=>m.status==='upcoming');
+      if (fallback) banners = [fallback];
+    }
+    banners.sort((a,b)=> (a.status==='live'?0:1) - (b.status==='live'?0:1));
+    if (banners.length){
+      html += `<div class="banner-carousel" id="bannerCarousel" onscroll="onBannerScroll()">${banners.map(banner=>{
+        const isLive = banner.status==='live';
+        return `<div class="banner-wrap" onclick="openPlayer('${banner.id}')">
+          ${banner.thumbnail_url?`<img src="${banner.thumbnail_url}" alt="">`:''}
+          <div class="banner-grad"></div>
+          <div class="banner-tag ${isLive?'':'upn'}">${isLive?'<span class="bdot"></span> مباشر الآن':fmtKickoff(banner.kickoff_at)}</div>
+          <div class="play-dot"><div class="circ"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+          <div class="banner-title">${escapeHtml(matchTitle(banner))}</div>
+          <div class="banner-label"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>${escapeHtml(banner.competition||'')}</div>
+        </div>`;
+      }).join('')}</div>`;
+      if (banners.length>1){
+        html += `<div class="banner-dots" id="bannerDots">${banners.map((b,i)=>`<div class="dot ${i===0?'on':''}"></div>`).join('')}</div>`;
+      }
+    }
   }
 
   // تجميع حسب category
@@ -426,14 +471,27 @@ function renderHome(){
     return ga-gb;
   });
   if (!order.length){
-    html += `<div class="empty-note">لا توجد مباريات مضافة حالياً لهذا النادي</div>`;
+    html += `<div class="empty-note">${q?'لا توجد نتائج مطابقة':'لا توجد مباريات مضافة حالياً لهذا النادي'}</div>`;
   }
   order.forEach(cat=>{
-    html += `<div class="cat-block"><div class="cat-head"><div class="cat-title">${escapeHtml(cat)}</div></div>
+    html += `<div class="cat-block"><div class="cat-head"><div class="cat-title">${escapeHtml(cat)}</div><span class="see-all">عرض الكل</span></div>
       <div class="cat-scroll">${groups[cat].map(matchCard).join('')}</div></div>`;
   });
 
   document.getElementById('homeContent').innerHTML = html;
+}
+function toggleSearch(){
+  const box = document.getElementById('searchBox');
+  box.classList.toggle('on');
+  if (box.classList.contains('on')) document.getElementById('searchInput').focus();
+  else { document.getElementById('searchInput').value=''; renderHome(); }
+}
+function onBannerScroll(){
+  const el = document.getElementById('bannerCarousel');
+  const dots = document.querySelectorAll('#bannerDots .dot');
+  if (!el || !dots.length) return;
+  const idx = Math.round(el.scrollLeft / el.clientWidth);
+  dots.forEach((d,i)=>d.classList.toggle('on', i===idx));
 }
 
 /* ============== المباريات السابقة ============== */
