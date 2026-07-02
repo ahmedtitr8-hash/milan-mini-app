@@ -573,14 +573,15 @@ function currentTabSources(){
 }
 function loadTabSources(){
   const m = state.currentMatch;
-  if (m.status === 'upcoming'){
-    showUpcomingState(m);
-    renderBelowPlayer();
-    return;
-  }
   const list = currentTabSources();
-  if (list.length){ loadSource(list[0].url); }
-  else { showPlaceholder('لا يوجد رابط متاح حالياً', true); }
+  if (list.length){
+    // فيه محتوى مضاف فعليًا (أي نوع)، نشغّله بدون قيود حتى لو الحالة "قادمة"
+    loadSource(list[0].url);
+  } else if (m.status === 'upcoming'){
+    showUpcomingState(m);
+  } else {
+    showPlaceholder('لا يوجد رابط متاح حالياً', true);
+  }
   renderBelowPlayer();
 }
 function showUpcomingState(m){
@@ -623,7 +624,7 @@ function renderBelowPlayer(){
   }
 
   const chips = currentTabSources();
-  if (m.status === 'upcoming'){
+  if (m.status === 'upcoming' && !chips.length){
     html += `<div class="sec-title">تنطلق المباراة الساعة ${escapeHtml(fmtKickoff(m.kickoff_at)||'قريبًا')} — تابعها هنا وقت البث</div>`;
   } else if (m.type==='live'){
     html += `<div class="sec-title">سيرفرات وقنوات أخرى</div>
