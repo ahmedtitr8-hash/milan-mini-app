@@ -24,8 +24,14 @@ create table if not exists public.matches (
   category_order int default 0,
   is_banner      boolean default false,
   sort_order     int default 0,
+  -- نص حر يتحكم به الأدمن يظهر للمباريات القادمة بدلاً من إجباره على إضافة رابط مشغل
+  -- (مثال: القناة الناقلة، الملعب، أي ملاحظة يريد عرضها قبل انطلاق المباراة)
+  upcoming_note  text default '',
   created_at     timestamptz default now()
 );
+
+-- ترقية قاعدة بيانات قديمة كانت موجودة قبل هذا التحديث
+alter table public.matches add column if not exists upcoming_note text default '';
 
 -- ---------- روابط المشاهدة (سيرفرات بث / كاملة / ملخص) ----------
 create table if not exists public.match_sources (
@@ -35,8 +41,22 @@ create table if not exists public.match_sources (
   label       text not null default 'سيرفر 1',
   url         text not null,
   sort_order  int default 0,
+  -- نوع الرابط الفعلي (مباشر / مسجل): auto = يكتشفه المشغل تلقائيًا من الرابط
+  stream_type text not null default 'auto' check (stream_type in ('auto','live','vod')),
+  -- جودات إضافية اختيارية لهذا السيرفر (روابط بديلة بجودات مختلفة يختارها المستخدم يدويًا من المشغل)
+  -- شكل القيمة: [{"label":"1080p","url":"https://..."}, ...]
+  qualities   jsonb not null default '[]'::jsonb,
   created_at  timestamptz default now()
 );
+
+-- ترقية قاعدة بيانات قديمة كانت موجودة قبل هذا التحديث (لا يفعل شيء إن كانت الأعمدة موجودة أصلاً)
+alter table public.match_sources add column if not exists stream_type text not null default 'auto';
+alter table public.match_sources add column if not exists qualities jsonb not null default '[]'::jsonb;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'match_sources_stream_type_check') then
+    alter table public.match_sources add constraint match_sources_stream_type_check check (stream_type in ('auto','live','vod'));
+  end if;
+end $$;
 
 -- ---------- مباريات مرتبطة (تظهر تحت مشغل الفيديو المسجل) ----------
 create table if not exists public.match_related (
