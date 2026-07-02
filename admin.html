@@ -71,6 +71,17 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
 .src-card .src-bottom input{flex:1;}
 .src-card .src-bottom input[type=number]{max-width:70px;flex:none;}
 .src-card .del-btn{width:34px;height:34px;flex-shrink:0;border-radius:8px;background:var(--danger);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.src-card .src-type-row{display:flex;gap:8px;margin-bottom:8px;}
+.src-card .src-type-row select{flex-shrink:0;width:150px;}
+.src-card .src-type-hint{font-size:10.5px;color:var(--mute);flex:1;align-self:center;}
+.qual-box{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px;}
+.qual-box .qual-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.qual-box .qual-head span{font-size:11px;font-weight:800;color:var(--mute);}
+.qual-row{display:flex;gap:6px;margin-bottom:6px;}
+.qual-row input{flex:1;}
+.qual-row input.qual-label{max-width:100px;flex:none;}
+.qual-row .del-btn{width:30px;height:30px;font-size:13px;}
+.btn.tiny{padding:5px 10px;font-size:11px;border-radius:7px;}
 
 .thumb-preview{width:100%;aspect-ratio:16/9;border-radius:10px;background:var(--card2);border:1px solid var(--border);
   margin-top:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:11px;}
@@ -218,8 +229,15 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
       </div>
     </div>
 
+    <div class="form-section" id="upcomingSection">
+      <h4>معلومات المباراة القادمة (اختياري)</h4>
+      <p style="color:var(--mute);font-size:11.5px;margin-bottom:10px;">تظهر هذه المعلومات في صفحة المباراة قبل انطلاقها بدلاً من إجبارك على إضافة رابط مشغل — مثال: القناة الناقلة، الملعب، أو أي ملاحظة تريد عرضها للمستخدم. لا حاجة لإضافة أي سيرفر إذا كانت المباراة بعد وقت طويل.</p>
+      <div class="field"><label>نص يظهر للمستخدم</label><textarea id="f_upcoming_note" rows="3" placeholder="مثال: تُعرض المباراة حصريًا على قناة SSC 1 يوم الجمعة"></textarea></div>
+    </div>
+
     <div class="form-section" id="sourcesSection">
       <h4 id="sourcesTitle">السيرفرات</h4>
+      <p style="color:var(--mute);font-size:11.5px;margin-bottom:10px;">إضافة سيرفر هنا اختيارية دائمًا لأي حالة — لست مضطرًا لإضافة رابط مشغل لمباراة قادمة، أضفه فقط عندما يتوفر لديك.</p>
       <div class="sub-list" id="sourcesList"></div>
       <button class="btn secondary small" onclick="addSourceRow()">+ إضافة سيرفر</button>
     </div>
@@ -375,7 +393,7 @@ async function duplicateMatch(id){
   if (error){ toast('تعذر التكرار: '+error.message, true); return; }
   const { data:srcs } = await sb.from('match_sources').select('*').eq('match_id', id);
   if (srcs && srcs.length){
-    await sb.from('match_sources').insert(srcs.map(s=>({ match_id: data.id, tab:s.tab, label:s.label, url:s.url, sort_order:s.sort_order })));
+    await sb.from('match_sources').insert(srcs.map(s=>({ match_id: data.id, tab:s.tab, label:s.label, url:s.url, sort_order:s.sort_order, stream_type:s.stream_type||'auto', qualities:s.qualities||[] })));
   }
   toast('تم إنشاء نسخة من المباراة');
   loadMatches();
@@ -403,10 +421,13 @@ function openMatchModal(id){
   document.getElementById('f_catorder').value = m?.category_order || 0;
   document.getElementById('f_sort').value = m?.sort_order || 0;
   document.getElementById('f_banner').checked = !!m?.is_banner;
+  document.getElementById('f_upcoming_note').value = m?.upcoming_note || '';
   updateThumbPreview();
 
   updateTypeSections();
   document.getElementById('f_type').onchange = updateTypeSections;
+  updateStatusSections();
+  document.getElementById('f_status').onchange = updateStatusSections;
 
   if (id){ loadSourcesFor(id); loadRelatedFor(id); }
   else { sourceRows = []; renderSourceRows(); renderRelatedChecklist([]); }
@@ -431,16 +452,24 @@ function updateTypeSections(){
   document.getElementById('sourcesTitle').textContent = type==='live' ? 'سيرفرات البث المباشر' : 'روابط كاملة وملخص';
   document.getElementById('relatedSection').classList.toggle('hide', type!=='vod');
 }
+function updateStatusSections(){
+  const status = document.getElementById('f_status').value;
+  document.getElementById('upcomingSection').classList.toggle('hide', status!=='upcoming');
+}
 
 /* ===== سيرفرات المباراة ===== */
 async function loadSourcesFor(id){
   const { data } = await sb.from('match_sources').select('*').eq('match_id', id).order('sort_order');
-  sourceRows = (data||[]).map(s=>({tab:s.tab,label:s.label,url:s.url,sort_order:s.sort_order}));
+  sourceRows = (data||[]).map(s=>({
+    tab:s.tab, label:s.label, url:s.url, sort_order:s.sort_order,
+    stream_type: s.stream_type || 'auto',
+    qualities: Array.isArray(s.qualities) ? s.qualities.map(q=>({label:q.label||'', url:q.url||''})) : []
+  }));
   renderSourceRows();
 }
 function addSourceRow(){
   const type = document.getElementById('f_type').value;
-  sourceRows.push({ tab: type==='live'?'live':'full', label:'سيرفر '+(sourceRows.length+1), url:'', sort_order: sourceRows.length });
+  sourceRows.push({ tab: type==='live'?'live':'full', label:'سيرفر '+(sourceRows.length+1), url:'', sort_order: sourceRows.length, stream_type:'auto', qualities:[] });
   renderSourceRows();
 }
 function renderSourceRows(){
@@ -448,7 +477,13 @@ function renderSourceRows(){
   const tabOptions = type==='live'
     ? `<option value="live">مباشر</option>`
     : `<option value="full">كاملة</option><option value="highlight">ملخص</option>`;
-  document.getElementById('sourcesList').innerHTML = sourceRows.map((s,i)=>`
+  const streamTypeOptions = `
+    <option value="auto">🔎 تلقائي (يكتشفه المشغل من الرابط)</option>
+    <option value="live">🔴 بث مباشر (إجباري)</option>
+    <option value="vod">🎬 فيديو مسجل (إجباري)</option>`;
+  document.getElementById('sourcesList').innerHTML = sourceRows.map((s,i)=>{
+    const quals = s.qualities || [];
+    return `
     <div class="src-card">
       <div class="src-top">
         <select onchange="sourceRows[${i}].tab=this.value">${tabOptions.replace('value="'+s.tab+'"','value="'+s.tab+'" selected')}</select>
@@ -459,9 +494,34 @@ function renderSourceRows(){
         <input type="number" title="الترتيب" value="${s.sort_order}" onchange="sourceRows[${i}].sort_order=parseInt(this.value)||0">
         <div class="del-btn" onclick="removeSourceRow(${i})">✕</div>
       </div>
-    </div>`).join('') || '<p style="color:var(--mute);font-size:12px;">لا توجد سيرفرات، اضغط "إضافة سيرفر"</p>';
+      <div class="src-type-row">
+        <select onchange="sourceRows[${i}].stream_type=this.value">${streamTypeOptions.replace('value="'+(s.stream_type||'auto')+'"','value="'+(s.stream_type||'auto')+'" selected')}</select>
+        <span class="src-type-hint">حدد "تلقائي" إلا إذا كان اكتشاف المشغل خاطئًا لهذا الرابط</span>
+      </div>
+      <div class="qual-box">
+        <div class="qual-head">
+          <span>جودات إضافية لهذا السيرفر (اختياري)</span>
+          <button type="button" class="btn secondary tiny" onclick="addQualityRow(${i})">+ إضافة جودة</button>
+        </div>
+        <div class="qual-list">
+          ${quals.map((q,qi)=>`
+            <div class="qual-row">
+              <input class="qual-label" placeholder="1080p" value="${escapeHtml(q.label)}" onchange="sourceRows[${i}].qualities[${qi}].label=this.value">
+              <input placeholder="رابط هذه الجودة" value="${escapeHtml(q.url)}" onchange="sourceRows[${i}].qualities[${qi}].url=this.value">
+              <div class="del-btn" onclick="removeQualityRow(${i},${qi})">✕</div>
+            </div>`).join('') || '<p style="color:var(--mute);font-size:11px;">بدون جودات إضافية — يعمل رابط السيرفر الرئيسي فقط</p>'}
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--mute);font-size:12px;">لا توجد سيرفرات، اضغط "إضافة سيرفر"</p>';
 }
 function removeSourceRow(i){ sourceRows.splice(i,1); renderSourceRows(); }
+function addQualityRow(i){
+  if (!sourceRows[i].qualities) sourceRows[i].qualities = [];
+  sourceRows[i].qualities.push({ label:'', url:'' });
+  renderSourceRows();
+}
+function removeQualityRow(i,qi){ sourceRows[i].qualities.splice(qi,1); renderSourceRows(); }
 
 /* ===== المباريات المرتبطة (تُعرض تحت الفيديو المسجل) ===== */
 async function loadRelatedFor(id){
@@ -492,7 +552,8 @@ async function saveMatch(){
     thumbnail_url: val('f_thumb'), category: val('f_category'),
     category_order: parseInt(val('f_catorder'))||0,
     sort_order: parseInt(val('f_sort'))||0,
-    is_banner: document.getElementById('f_banner').checked
+    is_banner: document.getElementById('f_banner').checked,
+    upcoming_note: val('f_upcoming_note')
   };
 
   let matchId = editingId;
@@ -510,7 +571,11 @@ async function saveMatch(){
     await sb.from('match_sources').delete().eq('match_id', matchId);
     const cleanSources = sourceRows.filter(s=>s.url && s.url.trim());
     if (cleanSources.length){
-      await sb.from('match_sources').insert(cleanSources.map(s=>({ match_id: matchId, tab:s.tab, label:s.label||'سيرفر', url:s.url, sort_order:s.sort_order||0 })));
+      await sb.from('match_sources').insert(cleanSources.map(s=>({
+        match_id: matchId, tab:s.tab, label:s.label||'سيرفر', url:s.url, sort_order:s.sort_order||0,
+        stream_type: s.stream_type || 'auto',
+        qualities: (s.qualities||[]).filter(q=>q.url && q.url.trim()).map(q=>({ label:(q.label||'').trim()||'جودة', url:q.url.trim() }))
+      })));
     }
 
     // حفظ المباريات المرتبطة
