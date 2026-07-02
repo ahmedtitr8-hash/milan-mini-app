@@ -133,6 +133,12 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .player-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 #playerWrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;flex-shrink:0;}
 #playerWrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}
+#playerWrap.ar-cover video{object-fit:cover;}
+#playerWrap.ar-fill video{object-fit:fill;}
+#playerWrap.ar-9x16:not(.fs):not(:fullscreen){aspect-ratio:9/16;}
+#playerWrap.ar-9x16 video{object-fit:cover;}
+#playerWrap.ar-16x9:not(.fs):not(:fullscreen){aspect-ratio:16/9;}
+#playerWrap.ar-16x9 video{object-fit:contain;}
 #playerWrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;}
 #playerPlaceholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(160deg,#0d0d0d,#000);color:var(--mute);font-size:12px;flex-direction:column;gap:10px;z-index:2;}
@@ -309,11 +315,26 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
                 <span class="live-flat hide" id="liveFlat"><span class="bdot"></span> مباشر</span>
               </div>
               <div class="left">
+                <button onclick="event.stopPropagation();toggleAspectMenu()" id="btnAspect" title="أبعاد العرض">
+                  <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
+                </button>
                 <button onclick="event.stopPropagation();toggleQualityMenu()" id="btnQuality" class="hide">
                   <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L1.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.4.34.66.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.09.5.02.66-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
                 </button>
                 <button onclick="toggleFS()" id="btnFS"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
               </div>
+            </div>
+            <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:80px;background:rgba(20,20,20,.96);
+              border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;" onclick="event.stopPropagation()">
+              <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
+              <div style="height:1px;background:var(--border)"></div>
+              <div data-ar="cover" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تعبئة الشاشة (قص الحواف)</div>
+              <div style="height:1px;background:var(--border)"></div>
+              <div data-ar="fill" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تمديد ليطابق الشاشة</div>
+              <div style="height:1px;background:var(--border)"></div>
+              <div data-ar="9x16" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عمودي 9:16</div>
+              <div style="height:1px;background:var(--border)"></div>
+              <div data-ar="16x9" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عرضي 16:9</div>
             </div>
             <div id="qualityMenu" class="hide" style="position:absolute;bottom:46px;left:12px;background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:110px;" onclick="event.stopPropagation()"></div>
@@ -996,6 +1017,13 @@ function bindVideoEvents(){
     document.getElementById('timeCur').textContent = fmtSec(v.currentTime);
     document.getElementById('timeDur').textContent = fmtSec(v.duration);
   });
+  v.addEventListener('webkitendfullscreen', ()=>{
+    if (isFull){
+      isFull = false;
+      document.getElementById('playerWrap').classList.remove('fs');
+      document.body.classList.remove('fs-lock');
+    }
+  });
 }
 function fmtSec(s){ if(!s||isNaN(s)) return '0:00'; const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; }
 function updatePlayIcons(playing){
@@ -1078,40 +1106,89 @@ function setupQualityMenu(){
   });
 }
 function toggleQualityMenu(){
+  document.getElementById('aspectMenu').classList.add('hide');
   document.getElementById('qualityMenu').classList.toggle('hide');
 }
+function toggleAspectMenu(){
+  document.getElementById('qualityMenu').classList.add('hide');
+  document.getElementById('aspectMenu').classList.toggle('hide');
+}
+function setAspect(mode){
+  const w = document.getElementById('playerWrap');
+  w.classList.remove('ar-cover','ar-fill','ar-9x16','ar-16x9');
+  if (mode) w.classList.add('ar-'+mode);
+  document.getElementById('aspectMenu').classList.add('hide');
+}
+document.getElementById('aspectMenu').querySelectorAll('[data-ar]').forEach(el=>{
+  el.onclick = (e)=>{ e.stopPropagation(); setAspect(el.dataset.ar); };
+});
 function toggleFS(){
+  if (isFull) { exitFS(); return; }
   const w = document.getElementById('playerWrap');
   const v = video();
-  if (!isFull){
-    isFull = true;
-    w.classList.add('fs');
-    document.body.classList.add('fs-lock');
-    // فول سكرين حقيقي: على iOS المشغل الأصلي للفيديو هو الوحيد القادر يدوّر الجهاز فعليًا تلقائيًا
-    if (v.webkitEnterFullscreen && !document.getElementById('embedFrame')){
-      try{ v.webkitEnterFullscreen(); }catch(e){}
-    } else if (w.requestFullscreen){
-      w.requestFullscreen().catch(()=>{});
-      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
-    } else if (w.webkitRequestFullscreen){
-      w.webkitRequestFullscreen();
-    }
-    showCtrl();
-  } else {
-    isFull = false;
-    w.classList.remove('fs');
-    document.body.classList.remove('fs-lock');
-    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
-    if (screen.orientation && screen.orientation.unlock) try{screen.orientation.unlock();}catch(e){}
+  const tg = window.Telegram && window.Telegram.WebApp;
+  isFull = true;
+  document.body.classList.add('fs-lock');
+
+  // 1) داخل تيليجرام: نطلب من تطبيق تيليجرام نفسه الفول سكرين الحقيقي — هذا الوحيد القادر على
+  //    إخفاء شريط تيليجرام العلوي فعليًا (الشريط الذي يظل ظاهرًا لأنه من تطبيق تيليجرام لا من صفحتنا)
+  let askedTelegram = false;
+  if (tg && typeof tg.requestFullscreen === 'function'){
+    try{ tg.requestFullscreen(); askedTelegram = true; }catch(e){}
+    if (typeof tg.lockOrientation === 'function'){ try{ tg.lockOrientation('landscape'); }catch(e){} }
   }
+
+  // 2) فول سكرين الفيديو الأصلي على iOS Safari: يدوّر الجهاز فعليًا تلقائيًا (تدوير حقيقي من النظام، لا CSS)
+  if (v.webkitEnterFullscreen && !document.getElementById('embedFrame')){
+    try{ v.webkitEnterFullscreen(); showCtrl(); return; }catch(e){}
+  }
+
+  // 3) فول سكرين المتصفح القياسي (Fullscreen API) + قفل اتجاه حقيقي للجهاز (يعمل على أندرويد كروم وغيره)
+  let askedRealFs = false;
+  if (w.requestFullscreen){
+    w.requestFullscreen().then(()=>{
+      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+    }).catch(()=>{});
+    askedRealFs = true;
+  } else if (w.webkitRequestFullscreen){
+    w.webkitRequestFullscreen();
+    askedRealFs = true;
+  }
+
+  // 4) حل بديل أخير فقط إن تعذّرت كل الطرق الحقيقية أعلاه: محاكاة بصرية بتدوير CSS (ليست تدويرًا حقيقيًا للجهاز)
+  if (!askedTelegram && !askedRealFs){
+    w.classList.add('fs');
+  }
+  showCtrl();
+}
+function exitFS(){
+  isFull = false;
+  const w = document.getElementById('playerWrap');
+  const tg = window.Telegram && window.Telegram.WebApp;
+  w.classList.remove('fs');
+  document.body.classList.remove('fs-lock');
+  if (tg && typeof tg.exitFullscreen === 'function'){ try{ tg.exitFullscreen(); }catch(e){} }
+  if (tg && typeof tg.unlockOrientation === 'function'){ try{ tg.unlockOrientation(); }catch(e){} }
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+  if (screen.orientation && screen.orientation.unlock) try{screen.orientation.unlock();}catch(e){}
 }
 document.addEventListener('fullscreenchange', ()=>{
-  if (!document.fullscreenElement && isFull){
+  if (!document.fullscreenElement && isFull && !(video().webkitDisplayingFullscreen)){
     isFull=false;
     document.getElementById('playerWrap').classList.remove('fs');
     document.body.classList.remove('fs-lock');
   }
 });
+if (window.Telegram && window.Telegram.WebApp && typeof Telegram.WebApp.onEvent === 'function'){
+  // إن أنهى المستخدم الفول سكرين من داخل تيليجرام نفسه (بدون زرّنا)، نُبقي حالة الواجهة متزامنة
+  Telegram.WebApp.onEvent('fullscreenChanged', ()=>{
+    if (!Telegram.WebApp.isFullscreen && isFull){
+      isFull=false;
+      document.getElementById('playerWrap').classList.remove('fs');
+      document.body.classList.remove('fs-lock');
+    }
+  });
+}
 </script>
 </body>
 </html>
