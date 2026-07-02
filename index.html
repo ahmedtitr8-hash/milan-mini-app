@@ -38,6 +38,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:transform .15s;}
 .club-btn:active{transform:scale(.95);}
 .club-crest{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:26px;color:#fff;}
+.pick-logo{height:64px;width:auto;max-width:110px;object-fit:contain;}
 .club-btn[data-club="milan"] .club-crest{background:linear-gradient(135deg,#E2101A,#7a0a0f);}
 .club-btn[data-club="barca"] .club-crest{background:linear-gradient(135deg,#A50044,#004D98);}
 .club-name{font-size:15px;font-weight:800;}
@@ -200,12 +201,12 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
     <div class="zone-word">ZO<span>NE</span></div>
     <div class="club-row">
       <button class="club-btn" data-club="milan" onclick="openClub('milan')">
-        <div class="club-crest">M</div>
+        <div class="club-crest" id="pickCrestMilan">M</div>
         <div class="club-name">ميلان</div>
         <div class="club-sub">AC Milan</div>
       </button>
       <button class="club-btn" data-club="barca" onclick="openClub('barca')">
-        <div class="club-crest">B</div>
+        <div class="club-crest" id="pickCrestBarca">B</div>
         <div class="club-name">برشلونة</div>
         <div class="club-sub">FC Barcelona</div>
       </button>
@@ -279,11 +280,11 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
       <div class="top-zone">ZONE</div>
     </div>
     <div class="player-scroll">
-      <div id="playerWrap">
+      <div id="playerWrap" onclick="onPlayerTap(event)">
         <div id="playerPlaceholder"><div class="spinner"></div><span>جارِ تحميل البث…</span></div>
         <video id="mainVideo" playsinline webkit-playsinline></video>
         <div id="liveBadgeP"><span class="bdot"></span> مباشر</div>
-        <div class="ctrl-layer" id="ctrlLayer" onclick="onPlayerTap(event)">
+        <div class="ctrl-layer" id="ctrlLayer">
           <div class="top-grad"></div>
           <div class="ctrl-center">
             <button onclick="event.stopPropagation();seekBy(-10)" id="btnBack10"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>
@@ -335,7 +336,22 @@ const IS_TG = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.We
 const CLUB_NAMES = { milan:'ميلان', barca:'برشلونة' };
 let state = { club:null, matches:[], finished:[], currentMatch:null, sources:[], related:[], currentTab:'live' };
 
-/* ============== تنقل الشاشات ============== */
+/* ============== شعارات شاشة اختيار النادي ============== */
+async function loadPickerLogos(){
+  const { data } = await sb.from('club_settings').select('*');
+  (data||[]).forEach(row=>{
+    if (!row.logo_url) return;
+    const id = row.club==='milan' ? 'pickCrestMilan' : 'pickCrestBarca';
+    const el = document.getElementById(id);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.className = 'pick-logo'; img.alt='';
+    img.onload = ()=>{ el.replaceWith(img); };
+    img.onerror = ()=>{};
+    img.src = row.logo_url;
+  });
+}
+loadPickerLogos();
 function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
   document.getElementById(id).classList.add('on');
@@ -524,7 +540,9 @@ async function openPlayer(matchId){
   const { data:m } = await sb.from('matches').select('*').eq('id', matchId).single();
   if (!m){ document.getElementById('playerTitle').textContent = 'تعذر إيجاد المباراة'; return; }
   state.currentMatch = m;
-  document.getElementById('playerTitle').textContent = `${m.home_team||''} ${m.away_team?('- '+m.away_team):''}`;
+  document.getElementById('playerTitle').textContent = (m.home_team || m.away_team)
+    ? `${m.home_team||''} ${m.away_team?('- '+m.away_team):''}`
+    : (m.title || 'ZONE');
 
   const { data:sources } = await sb.from('match_sources').select('*').eq('match_id', matchId).order('sort_order');
   state.sources = sources || [];
@@ -565,11 +583,13 @@ function renderBelowPlayer(){
     </div>`;
   }
 
-  html += `<div class="teams-row">
-    <div class="team-col"><div class="logo-holder"><img src="${m.home_logo||''}" onerror="this.parentElement.style.opacity=0.25"></div><span>${escapeHtml(m.home_team||'')}</span></div>
-    <div class="vs-txt">VS</div>
-    <div class="team-col"><div class="logo-holder"><img src="${m.away_logo||''}" onerror="this.parentElement.style.opacity=0.25"></div><span>${escapeHtml(m.away_team||'')}</span></div>
-  </div>`;
+  if (m.home_team || m.away_team){
+    html += `<div class="teams-row">
+      <div class="team-col"><div class="logo-holder"><img src="${m.home_logo||''}" onerror="this.parentElement.style.opacity=0.25"></div><span>${escapeHtml(m.home_team||'')}</span></div>
+      <div class="vs-txt">VS</div>
+      <div class="team-col"><div class="logo-holder"><img src="${m.away_logo||''}" onerror="this.parentElement.style.opacity=0.25"></div><span>${escapeHtml(m.away_team||'')}</span></div>
+    </div>`;
+  }
   if (m.competition || m.round){
     html += `<div class="match-meta">${escapeHtml(m.competition||'')}${m.round?' · الجولة '+escapeHtml(m.round):''}</div>`;
   }
@@ -626,6 +646,8 @@ function hidePlaceholder(){ document.getElementById('playerPlaceholder').classLi
 function resetPlayerUI(){
   destroyPlayer();
   showPlaceholder('جارِ تحميل البث…');
+  document.getElementById('playerWrap').classList.add('show');
+  clearTimeout(ctrlTimer);
 }
 function destroyPlayer(){
   if (hlsInst){ try{hlsInst.destroy();}catch(e){} hlsInst=null; }
@@ -634,13 +656,31 @@ function destroyPlayer(){
   const existingIframe = document.getElementById('embedFrame');
   if (existingIframe) existingIframe.remove();
   v.classList.remove('hide');
+  document.getElementById('ctrlLayer').classList.remove('hide');
 }
 
+function normalizeEmbedUrl(url){
+  // يوتيوب
+  let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/|youtube\.com\/shorts\/)([\w-]{6,})/i);
+  if (m) return { embed:true, url:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
+  m = url.match(/youtube\.com\/embed\/([\w-]{6,})/i);
+  if (m) return { embed:true, url:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
+  // فيميو
+  m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (m) return { embed:true, url:`https://player.vimeo.com/video/${m[1]}?autoplay=1` };
+  // جوجل درايف
+  m = url.match(/drive\.google\.com\/file\/d\/([\w-]+)/i);
+  if (m) return { embed:true, url:`https://drive.google.com/file/d/${m[1]}/preview` };
+  return { embed:false, url };
+}
 function loadSource(url){
   lastUrl = url;
   destroyPlayer();
   showPlaceholder('جارِ تحميل البث…');
+  document.getElementById('playerWrap').classList.add('show');
+  clearTimeout(ctrlTimer);
   const m = state.currentMatch;
+  video().poster = (m && m.thumbnail_url) || '';
   const isLive = m.type==='live';
   document.getElementById('liveBadgeP').style.display = isLive ? 'flex':'none';
   document.getElementById('liveFlat').classList.toggle('hide', !isLive);
@@ -650,21 +690,20 @@ function loadSource(url){
 
   if (!url){ showPlaceholder('لا يوجد رابط لهذا السيرفر', true); return; }
 
+  const norm = normalizeEmbedUrl(url.trim());
+  if (norm.embed){
+    // منصة معروفة (يوتيوب/فيميو/درايف) — تُعرض دائمًا كصفحة مضمّنة بصيغتها الصحيحة القابلة للتضمين
+    showEmbed(norm.url);
+    return;
+  }
+
   if (/\.m3u8(\?|#|$)/i.test(url)){
-    const v = video();
-    if (window.Hls && Hls.isSupported()){
-      hlsInst = new Hls({ enableWorker:true });
-      hlsInst.loadSource(url);
-      hlsInst.attachMedia(v);
-      hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{ hidePlaceholder(); v.play().catch(()=>{}); });
-      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{ if(data.fatal) showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true); });
-    } else if (v.canPlayType('application/vnd.apple.mpegurl')){
-      v.src = url;
-      v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
-      v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true), {once:true});
-    } else {
-      showEmbed(url);
-    }
+    playHls(url);
+  } else if (/\.ts(\?|#|$)/i.test(url)){
+    // رابط .ts خام (مقطع HLS مفرد): نغلّفه بقائمة تشغيل HLS مصغّرة تلقائيًا ليقرأها المتصفح
+    const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${url}\n#EXT-X-ENDLIST`;
+    const blobUrl = URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
+    playHls(blobUrl, true);
   } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)){
     playNative(url, true);
   } else {
@@ -672,6 +711,29 @@ function loadSource(url){
     playNative(url, false);
   }
   bindVideoEvents();
+}
+function playHls(url, isTsWrap){
+  const v = video();
+  if (window.Hls && Hls.isSupported()){
+    hlsInst = new Hls({ enableWorker:true });
+    hlsInst.loadSource(url);
+    hlsInst.attachMedia(v);
+    hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{ hidePlaceholder(); v.play().catch(()=>{}); });
+    hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
+      if (data.fatal){
+        const msg = (data.details==='manifestLoadError' || data.details==='fragLoadError' || data.details==='levelLoadError')
+          ? 'تعذر الوصول لهذا الرابط (قد يكون السيرفر يمنع التضمين من مواقع أخرى — CORS)، جرّب سيرفر آخر'
+          : 'تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة';
+        showPlaceholder(msg, true);
+      }
+    });
+  } else if (!isTsWrap && v.canPlayType('application/vnd.apple.mpegurl')){
+    v.src = url;
+    v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
+    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true), {once:true});
+  } else {
+    showPlaceholder('هذا المتصفح لا يدعم تشغيل هذا النوع من الروابط', true);
+  }
 }
 function playNative(url, isFinalAttempt){
   const v = video();
@@ -688,6 +750,7 @@ function playNative(url, isFinalAttempt){
 function showEmbed(url){
   hidePlaceholder();
   video().classList.add('hide');
+  document.getElementById('ctrlLayer').classList.add('hide');
   const f = document.createElement('iframe');
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
@@ -698,7 +761,7 @@ let boundOnce=false;
 function bindVideoEvents(){
   if (boundOnce) return; boundOnce=true;
   const v = video();
-  v.addEventListener('play', ()=>{ isPlayingState=true; updatePlayIcons(true); });
+  v.addEventListener('play', ()=>{ isPlayingState=true; updatePlayIcons(true); showCtrl(); });
   v.addEventListener('pause', ()=>{ isPlayingState=false; updatePlayIcons(false); });
   v.addEventListener('timeupdate', ()=>{
     if (!v.duration) return;
