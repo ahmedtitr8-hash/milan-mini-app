@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dashjs@4.7.4/dist/dash.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -670,6 +671,7 @@ function closePlayer(){
 /* ============== محرك تشغيل الفيديو ============== */
 let hlsInst=null;
 let dashInst=null;
+let mpegtsInst=null;
 const video = ()=>document.getElementById('mainVideo');
 let isPlayingState=false, isMuted=false, isFull=false, ctrlTimer=null;
 
@@ -682,13 +684,22 @@ function showPlaceholder(msg, showRetry){
 }
 let lastUrl = null;
 let lastSource = null;
+let loadWatchdog = null;
 function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl, lastSource); }
+
+// روابط بورتالات Xtream-Codes الشهيرة بصيغة: /live/user/pass/streamID أو /movie|series/user/pass/streamID
+// غالبًا بلا امتداد ظاهر، أو بامتداد .ts لتدفق مباشر خام يحتاج مشغّل MPEG-TS (mpegts.js) بدل <video> العادي
+function isXtreamLiveUrl(url){
+  return /\/(live)\/[^\/?#]+\/[^\/?#]+\/\d+/i.test(url);
+}
 
 /* ============== اكتشاف نوع الرابط: بث مباشر أم فيديو مسجل ============== */
 // 1) اكتشاف فوري من امتداد الرابط (فيديو ملف = مسجل دائمًا)
 function detectTypeFromExtension(url){
-  if (/\.(mp4|webm|ogv|mov|m4v|ts)(\?|#|$)/i.test(url)) return 'vod';
+  if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)) return 'vod';
+  if (/\.ts(\?|#|$)/i.test(url)) return isXtreamLiveUrl(url) ? 'live' : 'vod';
   if (/youtube\.com\/live\//i.test(url)) return 'live'; // رابط بث مباشر صريح من يوتيوب
+  if (isXtreamLiveUrl(url)) return 'live'; // مسار بورتال Xtream مباشر (live/user/pass/id)
   return null; // غير معروف من الامتداد فقط (مثل m3u8 أو رابط بدون امتداد أو embed)
 }
 // 2) اكتشاف دقيق لروابط HLS (m3u8) عبر فحص محتوى قائمة التشغيل نفسها:
@@ -743,8 +754,10 @@ function resetPlayerUI(){
   clearTimeout(ctrlTimer);
 }
 function destroyPlayer(){
+  clearTimeout(loadWatchdog);
   if (hlsInst){ try{hlsInst.destroy();}catch(e){} hlsInst=null; }
   if (dashInst){ try{dashInst.reset();}catch(e){} dashInst=null; }
+  if (mpegtsInst){ try{mpegtsInst.destroy();}catch(e){} mpegtsInst=null; }
   const v = video();
   try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){}
   const existingIframe = document.getElementById('embedFrame');
@@ -815,8 +828,8 @@ function loadSource(url, source){
   // 3) احتياطًا (قبل اكتمال أي فحص غير متزامن) نعتمد على نوع المباراة نفسه
   const bestGuess = forcedType || extType || (m && m.type) || 'vod';
   applyTypeUI(bestGuess);
-  // 4) لو الرابط m3u8 وبلا نوع إجباري: نفحص محتوى القائمة فعليًا لمعرفة إن كانت بثًا حيًا أو مسجلاً منتهيًا
-  if (!forcedType && /\.m3u8(\?|#|$)/i.test(url)){
+  // 4) لو الرابط m3u8/m3u وبلا نوع إجباري: نفحص محتوى القائمة فعليًا لمعرفة إن كانت بثًا حيًا أو مسجلاً منتهيًا
+  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(url)){
     detectHlsType(url).then(detected=>{
       if (detected && lastUrl === url) applyTypeUI(detected);
     });
@@ -837,24 +850,39 @@ function loadSource(url, source){
     return;
   }
 
-  if (/\.m3u8(\?|#|$)/i.test(url)){
+  if (/\.m3u8?(\?|#|$)/i.test(url)){
     playHls(url);
   } else if (/\.mpd(\?|#|$)/i.test(url)){
     playDash(url);
   } else if (/\.ts(\?|#|$)/i.test(url)){
-    // رابط .ts خام (مقطع HLS مفرد): نغلّفه بقائمة تشغيل HLS مصغّرة تلقائيًا ليقرأها المتصفح
-    const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${url}\n#EXT-X-ENDLIST`;
-    const blobUrl = URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
-    playHls(blobUrl, true);
+    if (bestGuess === 'live' || isXtreamLiveUrl(url)){
+      // تدفق مباشر خام (MPEG-TS مستمر) — لا يمكن تشغيله كملف مسجل واحد، يحتاج محرك mpegts.js
+      playMpegts(url);
+    } else {
+      // رابط .ts خام لمقطع مسجل منتهٍ: نغلّفه بقائمة تشغيل HLS مصغّرة تلقائيًا ليقرأها المتصفح
+      const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${url}\n#EXT-X-ENDLIST`;
+      const blobUrl = URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
+      playHls(blobUrl, true);
+    }
   } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)){
     playNative(url, true);
   } else {
-    // رابط بدون امتداد واضح (غالبًا سيرفر بث مباشر بمسار بلا .m3u8 ظاهر): جرّب HLS أولاً، ثم فيديو مباشر، وأخيرًا صفحة مضمّنة (iframe)
+    // رابط بدون امتداد واضح (شائع في بورتالات Xtream Codes): نجرّب المحركات الأنجح حسب الشكل
     playUnknown(url);
   }
   bindVideoEvents();
   // جودات يدوية اختيارية أضافها الأدمن لهذا السيرفر: تعمل بمعزل عن جودات hls.js التلقائية
   setupQualityMenu();
+
+  // مراقب تحميل: إن ظل التحميل معلقًا بلا خطأ صريح ولا نجاح لأكثر من 15 ثانية، نعرض زر إعادة المحاولة
+  // بدل أن تبقى دائرة التحميل تدور للأبد بدون أي رد فعل (كما يحصل مع بعض روابط IPTV المحجوبة بـ CORS)
+  clearTimeout(loadWatchdog);
+  loadWatchdog = setTimeout(()=>{
+    const ph = document.getElementById('playerPlaceholder');
+    if (lastUrl === url && !ph.classList.contains('hide') && ph.querySelector('.spinner')){
+      showPlaceholder('تعذر تشغيل هذا الرابط، أو أنه يستغرق وقتًا أطول من المعتاد', true);
+    }
+  }, 15000);
 }
 function playHls(url, isTsWrap){
   const v = video();
@@ -889,9 +917,32 @@ function playDash(url){
     showPlaceholder('تعذر تشغيل هذا الرابط', true);
   }
 }
-function playUnknown(url){
-  // رابط بلا امتداد واضح: قد يكون بث HLS بمسار مقنّع، فيديو مباشر، أو صفحة مضمّنة — نجرّب بالترتيب الأنجح عمليًا
+// تشغيل تدفق MPEG-TS خام مستمر (شائع في بورتالات Xtream Codes) عبر mpegts.js + Media Source Extensions
+function playMpegts(url){
   const v = video();
+  if (!(window.mpegts && mpegts.isSupported())){
+    // لا دعم MSE هنا: جرّب كـ HLS كحل بديل قبل الاستسلام
+    playHls(url, true);
+    return;
+  }
+  mpegtsInst = mpegts.createPlayer({ type:'mse', isLive:true, url, hasAudio:true, hasVideo:true });
+  mpegtsInst.attachMediaElement(v);
+  mpegtsInst.on(mpegts.Events.ERROR, ()=>{
+    try{mpegtsInst.destroy();}catch(e){} mpegtsInst=null;
+    // فشل mpegts.js (قد لا يكون التدفق MPEG-TS خامًا فعلاً) — جرّب HLS كحل بديل
+    playHls(url, true);
+  });
+  v.addEventListener('loadeddata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
+  mpegtsInst.load();
+  mpegtsInst.play();
+}
+function playUnknown(url){
+  // رابط بلا امتداد واضح: قد يكون بث HLS بمسار مقنّع، تدفق MPEG-TS خام (Xtream)، فيديو مباشر، أو صفحة مضمّنة
+  const v = video();
+  if (isXtreamLiveUrl(url) && window.mpegts && mpegts.isSupported()){
+    playMpegts(url);
+    return;
+  }
   if (window.Hls && Hls.isSupported()){
     hlsInst = new Hls({ enableWorker:true });
     hlsInst.loadSource(url);
@@ -900,9 +951,12 @@ function playUnknown(url){
     hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
       if (data.fatal){
         try{hlsInst.destroy();}catch(e){} hlsInst=null;
-        playNative(url, false);
+        if (window.mpegts && mpegts.isSupported()) playMpegts(url);
+        else playNative(url, false);
       }
     });
+  } else if (window.mpegts && mpegts.isSupported()){
+    playMpegts(url);
   } else {
     playNative(url, false);
   }
