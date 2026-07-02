@@ -710,6 +710,13 @@ function loadSource(url){
   showPlaceholder('جارِ تحميل البث…');
   document.getElementById('playerWrap').classList.add('show');
   clearTimeout(ctrlTimer);
+
+  // فحص Mixed Content: الصفحة https والرابط http — المتصفح يمنعه تلقائيًا ولا حل بدون تحويل الرابط نفسه لـ https
+  if (location.protocol === 'https:' && /^http:\/\//i.test(url.trim())){
+    showPlaceholder('تعذر تشغيل هذا الرابط', true);
+    return;
+  }
+
   const m = state.currentMatch;
   video().poster = (m && m.thumbnail_url) || '';
   const isLive = m.type==='live';
@@ -719,7 +726,7 @@ function loadSource(url){
   document.getElementById('btnBack10').style.display = isLive ? 'none':'flex';
   document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
 
-  if (!url){ showPlaceholder('لا يوجد رابط لهذا السيرفر', true); return; }
+  if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
 
   const norm = normalizeEmbedUrl(url.trim());
   if (norm.embed){
@@ -754,19 +761,14 @@ function playHls(url, isTsWrap){
       setupQualityMenu();
     });
     hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
-      if (data.fatal){
-        const msg = (data.details==='manifestLoadError' || data.details==='fragLoadError' || data.details==='levelLoadError')
-          ? 'تعذر الوصول لهذا الرابط (قد يكون السيرفر يمنع التضمين من مواقع أخرى — CORS)، جرّب سيرفر آخر'
-          : 'تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة';
-        showPlaceholder(msg, true);
-      }
+      if (data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط', true);
     });
   } else if (!isTsWrap && v.canPlayType('application/vnd.apple.mpegurl')){
     v.src = url;
     v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
-    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true), {once:true});
+    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true), {once:true});
   } else {
-    showPlaceholder('هذا المتصفح لا يدعم تشغيل هذا النوع من الروابط', true);
+    showPlaceholder('تعذر تشغيل هذا الرابط', true);
   }
 }
 function playNative(url, isFinalAttempt){
@@ -775,7 +777,7 @@ function playNative(url, isFinalAttempt){
   const onOk = ()=>{ hidePlaceholder(); v.play().catch(()=>{}); v.removeEventListener('error', onErr); };
   const onErr = ()=>{
     v.removeEventListener('loadedmetadata', onOk);
-    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا السيرفر، جرّب سيرفر آخر أو أعد المحاولة', true); }
+    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا الرابط', true); }
     else { showEmbed(url); }
   };
   v.addEventListener('loadedmetadata', onOk, {once:true});
