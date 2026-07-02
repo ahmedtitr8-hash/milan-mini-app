@@ -7,6 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dashjs@4.7.4/dist/dash.all.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -191,6 +192,9 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
 .chip{padding:9px 16px;border-radius:9px;background:var(--card);border:1px solid var(--border);font-size:13px;font-weight:700;}
 .chip.active{background:var(--acc);border-color:var(--acc);color:#fff;}
 .related-scroll{display:flex;gap:10px;overflow-x:auto;padding-top:4px;}
+.info-note{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:14px;
+  white-space:pre-line;font-size:13px;color:var(--txt);line-height:1.7;}
+.info-note b{color:var(--acc);}
 </style>
 </head>
 <body>
@@ -339,7 +343,7 @@ const IS_TG = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.We
 
 /* ============== الحالة ============== */
 const CLUB_NAMES = { milan:'ميلان', barca:'برشلونة' };
-let state = { club:null, matches:[], finished:[], currentMatch:null, sources:[], related:[], currentTab:'live' };
+let state = { club:null, matches:[], finished:[], currentMatch:null, sources:[], related:[], currentTab:'live', currentSource:null };
 
 /* ============== شعارات شاشة اختيار النادي ============== */
 async function loadPickerLogos(){
@@ -576,7 +580,7 @@ function loadTabSources(){
   const list = currentTabSources();
   if (list.length){
     // فيه محتوى مضاف فعليًا (أي نوع)، نشغّله بدون قيود حتى لو الحالة "قادمة"
-    loadSource(list[0].url);
+    loadSource(list[0].url, list[0]);
   } else if (m.status === 'upcoming'){
     showUpcomingState(m);
   } else {
@@ -595,10 +599,12 @@ function showUpcomingState(m){
   document.getElementById('btnFwd10').style.display = 'none';
   document.getElementById('ctrlLayer').classList.add('hide');
   const p = document.getElementById('playerPlaceholder');
+  const note = (m.upcoming_note || '').trim();
   p.innerHTML = `
     <svg viewBox="0 0 24 24" style="width:34px;height:34px;fill:var(--acc)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h-2V7h2zm0 4h-2v-2h2z"/></svg>
     <span style="font-weight:800;color:#fff;">المباراة لم تبدأ بعد</span>
-    <span style="font-size:12px;">موعد الانطلاق: ${fmtKickoff(m.kickoff_at) || 'قريبًا'}</span>`;
+    <span style="font-size:12px;">موعد الانطلاق: ${fmtKickoff(m.kickoff_at) || 'قريبًا'}</span>
+    ${note ? `<span style="font-size:12.5px;color:#ddd;max-width:280px;text-align:center;line-height:1.5;margin-top:2px;">${escapeHtml(note)}</span>` : ''}`;
   p.classList.remove('hide');
 }
 function renderBelowPlayer(){
@@ -626,6 +632,9 @@ function renderBelowPlayer(){
   const chips = currentTabSources();
   if (m.status === 'upcoming' && !chips.length){
     html += `<div class="sec-title">تنطلق المباراة الساعة ${escapeHtml(fmtKickoff(m.kickoff_at)||'قريبًا')} — تابعها هنا وقت البث</div>`;
+    if ((m.upcoming_note||'').trim()){
+      html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6;color:#ddd;">${escapeHtml(m.upcoming_note.trim())}</div>`;
+    }
   } else if (m.type==='live'){
     html += `<div class="sec-title">سيرفرات وقنوات أخرى</div>
       <div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('') || '<span style="color:var(--mute);font-size:13px;">لا توجد سيرفرات إضافية</span>'}</div>`;
@@ -651,7 +660,7 @@ function pickSource(i, el){
   if (!list[i]) return;
   document.querySelectorAll('#chipsRow .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
-  loadSource(list[i].url);
+  loadSource(list[i].url, list[i]);
 }
 function closePlayer(){
   destroyPlayer();
@@ -660,6 +669,7 @@ function closePlayer(){
 
 /* ============== محرك تشغيل الفيديو ============== */
 let hlsInst=null;
+let dashInst=null;
 const video = ()=>document.getElementById('mainVideo');
 let isPlayingState=false, isMuted=false, isFull=false, ctrlTimer=null;
 
@@ -671,7 +681,59 @@ function showPlaceholder(msg, showRetry){
   p.classList.remove('hide');
 }
 let lastUrl = null;
-function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl); }
+let lastSource = null;
+function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl, lastSource); }
+
+/* ============== اكتشاف نوع الرابط: بث مباشر أم فيديو مسجل ============== */
+// 1) اكتشاف فوري من امتداد الرابط (فيديو ملف = مسجل دائمًا)
+function detectTypeFromExtension(url){
+  if (/\.(mp4|webm|ogv|mov|m4v|ts)(\?|#|$)/i.test(url)) return 'vod';
+  if (/youtube\.com\/live\//i.test(url)) return 'live'; // رابط بث مباشر صريح من يوتيوب
+  return null; // غير معروف من الامتداد فقط (مثل m3u8 أو رابط بدون امتداد أو embed)
+}
+// 2) اكتشاف دقيق لروابط HLS (m3u8) عبر فحص محتوى قائمة التشغيل نفسها:
+//    - وجود #EXT-X-ENDLIST أو PLAYLIST-TYPE:VOD  => فيديو مسجل منتهي
+//    - عدم وجودها (تدفق مستمر)                   => بث مباشر
+async function detectHlsType(url, depth){
+  depth = depth || 0;
+  try{
+    const res = await fetch(url, { cache:'no-store' });
+    const text = await res.text();
+    if (/#EXT-X-ENDLIST/i.test(text) || /#EXT-X-PLAYLIST-TYPE:\s*VOD/i.test(text)) return 'vod';
+    if (/#EXT-X-PLAYLIST-TYPE:\s*EVENT/i.test(text)) return 'live';
+    // قائمة تشغيل رئيسية (master) تشير إلى قوائم فرعية بجودات مختلفة — نفحص أول قائمة فرعية
+    if (depth < 2){
+      const lines = text.split('\n').map(l=>l.trim()).filter(l=>l && !l.startsWith('#'));
+      if (lines.length){
+        const subUrl = new URL(lines[0], url).href;
+        return await detectHlsType(subUrl, depth+1);
+      }
+    }
+    return 'live'; // تدفق بلا نهاية معروفة = غالبًا بث مباشر
+  }catch(e){
+    return null; // تعذر جلب القائمة (CORS أو غيره) — نعتمد على الاحتياط
+  }
+}
+// اكتشاف نوع روابط DASH (mpd) من محتوى الـ manifest نفسه: type="dynamic" بث مباشر، type="static" مسجل منتهٍ
+async function detectDashType(url){
+  try{
+    const res = await fetch(url, { cache:'no-store' });
+    const text = await res.text();
+    const m = text.match(/<MPD[^>]*\btype="([^"]+)"/i);
+    if (m) return m[1].toLowerCase()==='dynamic' ? 'live' : 'vod';
+    return 'vod';
+  }catch(e){
+    return null;
+  }
+}
+function applyTypeUI(type){
+  const isLive = type === 'live';
+  document.getElementById('liveBadgeP').style.display = isLive ? 'flex':'none';
+  document.getElementById('liveFlat').classList.toggle('hide', !isLive);
+  document.getElementById('seekRow').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnBack10').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
+}
 function hidePlaceholder(){ document.getElementById('playerPlaceholder').classList.add('hide'); }
 
 function resetPlayerUI(){
@@ -682,6 +744,7 @@ function resetPlayerUI(){
 }
 function destroyPlayer(){
   if (hlsInst){ try{hlsInst.destroy();}catch(e){} hlsInst=null; }
+  if (dashInst){ try{dashInst.reset();}catch(e){} dashInst=null; }
   const v = video();
   try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){}
   const existingIframe = document.getElementById('embedFrame');
@@ -702,10 +765,34 @@ function normalizeEmbedUrl(url){
   // جوجل درايف
   m = url.match(/drive\.google\.com\/file\/d\/([\w-]+)/i);
   if (m) return { embed:true, url:`https://drive.google.com/file/d/${m[1]}/preview` };
+  // ديلي موشن
+  m = url.match(/dailymotion\.com\/video\/([\w-]+)/i) || url.match(/dai\.ly\/([\w-]+)/i);
+  if (m) return { embed:true, url:`https://www.dailymotion.com/embed/video/${m[1]}?autoplay=1` };
+  // تويتش (فيديو أو بث مباشر لقناة)
+  m = url.match(/twitch\.tv\/videos\/(\d+)/i);
+  if (m) return { embed:true, url:`https://player.twitch.tv/?video=${m[1]}&parent=${location.hostname}&autoplay=true` };
+  m = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)\/?$/i);
+  if (m && !/videos|directory|settings/i.test(m[1])) return { embed:true, url:`https://player.twitch.tv/?channel=${m[1]}&parent=${location.hostname}&autoplay=true` };
+  // فيسبوك (فيديو / بث مباشر)
+  if (/facebook\.com|fb\.watch/i.test(url)){
+    return { embed:true, url:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&autoplay=1&show_text=0` };
+  }
+  // أوك.رو
+  m = url.match(/ok\.ru\/(?:video|live)\/(\d+)/i);
+  if (m) return { embed:true, url:`https://ok.ru/videoembed/${m[1]}` };
+  // رامبل
+  m = url.match(/rumble\.com\/embed\/([\w-]+)/i);
+  if (m) return { embed:true, url };
+  // أي رابط جاهز أصلاً كصفحة "embed" (منصات أخرى كثيرة تستخدم /embed/ بمساراتها) — يُعرض كما هو مباشرة
+  if (/\/embed\//i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
+    return { embed:true, url };
+  }
   return { embed:false, url };
 }
-function loadSource(url){
+function loadSource(url, source){
   lastUrl = url;
+  lastSource = source || null;
+  state.currentSource = source || null;
   destroyPlayer();
   showPlaceholder('جارِ تحميل البث…');
   document.getElementById('playerWrap').classList.add('show');
@@ -719,12 +806,26 @@ function loadSource(url){
 
   const m = state.currentMatch;
   video().poster = (m && m.thumbnail_url) || '';
-  const isLive = m.type==='live';
-  document.getElementById('liveBadgeP').style.display = isLive ? 'flex':'none';
-  document.getElementById('liveFlat').classList.toggle('hide', !isLive);
-  document.getElementById('seekRow').style.display = isLive ? 'none':'flex';
-  document.getElementById('btnBack10').style.display = isLive ? 'none':'flex';
-  document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
+
+  /* ===== تحديد نوع الرابط الفعلي (مباشر / مسجل) ===== */
+  // 1) إن حدد الأدمن نوعًا إجباريًا لهذا السيرفر نأخذه كما هو
+  const forcedType = source && source.stream_type && source.stream_type !== 'auto' ? source.stream_type : null;
+  // 2) وإلا نحاول اكتشافه فورًا من امتداد الرابط
+  const extType = forcedType ? null : detectTypeFromExtension(url);
+  // 3) احتياطًا (قبل اكتمال أي فحص غير متزامن) نعتمد على نوع المباراة نفسه
+  const bestGuess = forcedType || extType || (m && m.type) || 'vod';
+  applyTypeUI(bestGuess);
+  // 4) لو الرابط m3u8 وبلا نوع إجباري: نفحص محتوى القائمة فعليًا لمعرفة إن كانت بثًا حيًا أو مسجلاً منتهيًا
+  if (!forcedType && /\.m3u8(\?|#|$)/i.test(url)){
+    detectHlsType(url).then(detected=>{
+      if (detected && lastUrl === url) applyTypeUI(detected);
+    });
+  }
+  if (!forcedType && /\.mpd(\?|#|$)/i.test(url)){
+    detectDashType(url).then(detected=>{
+      if (detected && lastUrl === url) applyTypeUI(detected);
+    });
+  }
 
   if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
 
@@ -732,11 +833,14 @@ function loadSource(url){
   if (norm.embed){
     // منصة معروفة (يوتيوب/فيميو/درايف) — تُعرض دائمًا كصفحة مضمّنة بصيغتها الصحيحة القابلة للتضمين
     showEmbed(norm.url);
+    setupQualityMenu();
     return;
   }
 
   if (/\.m3u8(\?|#|$)/i.test(url)){
     playHls(url);
+  } else if (/\.mpd(\?|#|$)/i.test(url)){
+    playDash(url);
   } else if (/\.ts(\?|#|$)/i.test(url)){
     // رابط .ts خام (مقطع HLS مفرد): نغلّفه بقائمة تشغيل HLS مصغّرة تلقائيًا ليقرأها المتصفح
     const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${url}\n#EXT-X-ENDLIST`;
@@ -745,10 +849,12 @@ function loadSource(url){
   } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)){
     playNative(url, true);
   } else {
-    // رابط بدون امتداد واضح: جرّب تشغيله كفيديو مباشر أولاً، وإن فشل ننتقل لعرضه كصفحة مضمّنة (iframe)
-    playNative(url, false);
+    // رابط بدون امتداد واضح (غالبًا سيرفر بث مباشر بمسار بلا .m3u8 ظاهر): جرّب HLS أولاً، ثم فيديو مباشر، وأخيرًا صفحة مضمّنة (iframe)
+    playUnknown(url);
   }
   bindVideoEvents();
+  // جودات يدوية اختيارية أضافها الأدمن لهذا السيرفر: تعمل بمعزل عن جودات hls.js التلقائية
+  setupQualityMenu();
 }
 function playHls(url, isTsWrap){
   const v = video();
@@ -769,6 +875,36 @@ function playHls(url, isTsWrap){
     v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true), {once:true});
   } else {
     showPlaceholder('تعذر تشغيل هذا الرابط', true);
+  }
+}
+function playDash(url){
+  const v = video();
+  if (window.dashjs){
+    dashInst = dashjs.MediaPlayer().create();
+    dashInst.updateSettings({ streaming:{ text:{ defaultEnabled:false } } });
+    dashInst.initialize(v, url, true);
+    dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ hidePlaceholder(); });
+    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ showPlaceholder('تعذر تشغيل هذا الرابط', true); });
+  } else {
+    showPlaceholder('تعذر تشغيل هذا الرابط', true);
+  }
+}
+function playUnknown(url){
+  // رابط بلا امتداد واضح: قد يكون بث HLS بمسار مقنّع، فيديو مباشر، أو صفحة مضمّنة — نجرّب بالترتيب الأنجح عمليًا
+  const v = video();
+  if (window.Hls && Hls.isSupported()){
+    hlsInst = new Hls({ enableWorker:true });
+    hlsInst.loadSource(url);
+    hlsInst.attachMedia(v);
+    hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{ hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu(); });
+    hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
+      if (data.fatal){
+        try{hlsInst.destroy();}catch(e){} hlsInst=null;
+        playNative(url, false);
+      }
+    });
+  } else {
+    playNative(url, false);
   }
 }
 function playNative(url, isFinalAttempt){
@@ -855,6 +991,29 @@ function onPlayerTap(e){
 function setupQualityMenu(){
   const btn = document.getElementById('btnQuality');
   const menu = document.getElementById('qualityMenu');
+
+  // 1) جودات يدوية أضافها الأدمن لهذا السيرفر تحديدًا (روابط بديلة كاملة)
+  const src = state.currentSource;
+  const manualQ = (src && Array.isArray(src.qualities)) ? src.qualities.filter(q=>q && q.url) : [];
+  if (manualQ.length){
+    btn.classList.remove('hide');
+    const activeUrl = lastUrl;
+    const items = [`<div data-mq="-1" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">${src.url===activeUrl?'✓ ':''}الجودة الأساسية</div>`]
+      .concat(manualQ.map((q,i)=>`<div data-mq="${i}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">${q.url===activeUrl?'✓ ':''}${escapeHtml(q.label||('جودة '+(i+1)))}</div>`));
+    menu.innerHTML = items.join('<div style="height:1px;background:var(--border)"></div>');
+    menu.querySelectorAll('[data-mq]').forEach(el=>{
+      el.onclick = (e)=>{
+        e.stopPropagation();
+        menu.classList.add('hide');
+        const idx = parseInt(el.dataset.mq);
+        const targetUrl = idx===-1 ? src.url : manualQ[idx].url;
+        if (targetUrl && targetUrl !== activeUrl) loadSource(targetUrl, src);
+      };
+    });
+    return;
+  }
+
+  // 2) احتياطًا: جودات hls.js التلقائية (تدفق واحد متعدد البتات)
   if (!hlsInst || !hlsInst.levels || hlsInst.levels.length < 2){ btn.classList.add('hide'); return; }
   btn.classList.remove('hide');
   const items = ['<div data-l="-1" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تلقائي</div>']
