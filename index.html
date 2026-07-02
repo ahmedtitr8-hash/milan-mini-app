@@ -304,9 +304,14 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
                 <span class="live-flat hide" id="liveFlat"><span class="bdot"></span> مباشر</span>
               </div>
               <div class="left">
+                <button onclick="event.stopPropagation();toggleQualityMenu()" id="btnQuality" class="hide">
+                  <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L1.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.4.34.66.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.09.5.02.66-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
+                </button>
                 <button onclick="toggleFS()" id="btnFS"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
               </div>
             </div>
+            <div id="qualityMenu" class="hide" style="position:absolute;bottom:46px;left:12px;background:rgba(20,20,20,.96);
+              border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:110px;" onclick="event.stopPropagation()"></div>
           </div>
         </div>
       </div>
@@ -567,10 +572,33 @@ function currentTabSources(){
   return state.sources.filter(s=>s.tab===state.currentTab);
 }
 function loadTabSources(){
+  const m = state.currentMatch;
+  if (m.status === 'upcoming'){
+    showUpcomingState(m);
+    renderBelowPlayer();
+    return;
+  }
   const list = currentTabSources();
   if (list.length){ loadSource(list[0].url); }
-  else { showPlaceholder('لا يوجد رابط متاح حالياً'); }
+  else { showPlaceholder('لا يوجد رابط متاح حالياً', true); }
   renderBelowPlayer();
+}
+function showUpcomingState(m){
+  destroyPlayer();
+  const v = video();
+  v.poster = m.thumbnail_url || '';
+  document.getElementById('liveBadgeP').style.display = 'none';
+  document.getElementById('liveFlat').classList.add('hide');
+  document.getElementById('seekRow').style.display = 'none';
+  document.getElementById('btnBack10').style.display = 'none';
+  document.getElementById('btnFwd10').style.display = 'none';
+  document.getElementById('ctrlLayer').classList.add('hide');
+  const p = document.getElementById('playerPlaceholder');
+  p.innerHTML = `
+    <svg viewBox="0 0 24 24" style="width:34px;height:34px;fill:var(--acc)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h-2V7h2zm0 4h-2v-2h2z"/></svg>
+    <span style="font-weight:800;color:#fff;">المباراة لم تبدأ بعد</span>
+    <span style="font-size:12px;">موعد الانطلاق: ${fmtKickoff(m.kickoff_at) || 'قريبًا'}</span>`;
+  p.classList.remove('hide');
 }
 function renderBelowPlayer(){
   const m = state.currentMatch;
@@ -595,7 +623,9 @@ function renderBelowPlayer(){
   }
 
   const chips = currentTabSources();
-  if (m.type==='live'){
+  if (m.status === 'upcoming'){
+    html += `<div class="sec-title">تنطلق المباراة الساعة ${escapeHtml(fmtKickoff(m.kickoff_at)||'قريبًا')} — تابعها هنا وقت البث</div>`;
+  } else if (m.type==='live'){
     html += `<div class="sec-title">سيرفرات وقنوات أخرى</div>
       <div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('') || '<span style="color:var(--mute);font-size:13px;">لا توجد سيرفرات إضافية</span>'}</div>`;
   } else {
@@ -718,7 +748,10 @@ function playHls(url, isTsWrap){
     hlsInst = new Hls({ enableWorker:true });
     hlsInst.loadSource(url);
     hlsInst.attachMedia(v);
-    hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{ hidePlaceholder(); v.play().catch(()=>{}); });
+    hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
+      hidePlaceholder(); v.play().catch(()=>{});
+      setupQualityMenu();
+    });
     hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
       if (data.fatal){
         const msg = (data.details==='manifestLoadError' || data.details==='fragLoadError' || data.details==='levelLoadError')
@@ -816,14 +849,37 @@ function onPlayerTap(e){
   if (w.classList.contains('show')){ clearTimeout(ctrlTimer); w.classList.remove('show'); }
   else showCtrl();
 }
+function setupQualityMenu(){
+  const btn = document.getElementById('btnQuality');
+  const menu = document.getElementById('qualityMenu');
+  if (!hlsInst || !hlsInst.levels || hlsInst.levels.length < 2){ btn.classList.add('hide'); return; }
+  btn.classList.remove('hide');
+  const items = ['<div data-l="-1" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تلقائي</div>']
+    .concat(hlsInst.levels.map((lvl,i)=>`<div data-l="${i}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">${lvl.height?lvl.height+'p':Math.round(lvl.bitrate/1000)+'kbps'}</div>`));
+  menu.innerHTML = items.join('<div style="height:1px;background:var(--border)"></div>');
+  menu.querySelectorAll('[data-l]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); hlsInst.currentLevel = parseInt(el.dataset.l); menu.classList.add('hide'); };
+  });
+}
+function toggleQualityMenu(){
+  document.getElementById('qualityMenu').classList.toggle('hide');
+}
 function toggleFS(){
   const w = document.getElementById('playerWrap');
+  const v = video();
   if (!isFull){
     isFull = true;
     w.classList.add('fs');
     document.body.classList.add('fs-lock');
-    if (w.requestFullscreen) w.requestFullscreen().catch(()=>{});
-    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+    // فول سكرين حقيقي: على iOS المشغل الأصلي للفيديو هو الوحيد القادر يدوّر الجهاز فعليًا تلقائيًا
+    if (v.webkitEnterFullscreen && !document.getElementById('embedFrame')){
+      try{ v.webkitEnterFullscreen(); }catch(e){}
+    } else if (w.requestFullscreen){
+      w.requestFullscreen().catch(()=>{});
+      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+    } else if (w.webkitRequestFullscreen){
+      w.webkitRequestFullscreen();
+    }
     showCtrl();
   } else {
     isFull = false;
