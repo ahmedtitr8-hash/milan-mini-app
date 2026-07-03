@@ -754,27 +754,20 @@ function makeProxyLoader(){
 }
 
 /* ============== اكتشاف نوع الرابط: بث مباشر أم فيديو مسجل ============== */
-// 1) اكتشاف فوري من امتداد الرابط (فيديو ملف = مسجل دائمًا)
 function detectTypeFromExtension(url){
   if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)) return 'vod';
   if (/\.ts(\?|#|$)/i.test(url)) return isXtreamLiveUrl(url) ? 'live' : 'vod';
-  if (/youtube\.com\/live\//i.test(url)) return 'live'; // رابط بث مباشر صريح من يوتيوب
-  if (isXtreamLiveUrl(url)) return 'live'; // مسار بورتال Xtream مباشر (live/user/pass/id)
-  return null; // غير معروف من الامتداد فقط (مثل m3u8 أو رابط بدون امتداد أو embed)
+  if (/youtube\.com\/live\//i.test(url)) return 'live';
+  if (isXtreamLiveUrl(url)) return 'live';
+  return null;
 }
-// 2) اكتشاف دقيق لروابط HLS (m3u8) عبر فحص محتوى قائمة التشغيل نفسها:
-//    - وجود #EXT-X-ENDLIST أو PLAYLIST-TYPE:VOD  => فيديو مسجل منتهي
-//    - عدم وجودها (تدفق مستمر)                   => بث مباشر
 async function detectHlsType(url, depth){
-  // url هنا هو دائمًا الرابط الأصلي (http أو https)؛ نحسب رابط الجلب الفعلي عبر البروكسي عند كل استدعاء
-  // على حدة، بينما نحلّ أي رابط نسبي داخل القائمة استنادًا للرابط الأصلي نفسه (وليس رابط البروكسي)
   depth = depth || 0;
   try{
     const res = await fetch(proxied(url), { cache:'no-store' });
     const text = await res.text();
     if (/#EXT-X-ENDLIST/i.test(text) || /#EXT-X-PLAYLIST-TYPE:\s*VOD/i.test(text)) return 'vod';
     if (/#EXT-X-PLAYLIST-TYPE:\s*EVENT/i.test(text)) return 'live';
-    // قائمة تشغيل رئيسية (master) تشير إلى قوائم فرعية بجودات مختلفة — نفحص أول قائمة فرعية
     if (depth < 2){
       const lines = text.split('\n').map(l=>l.trim()).filter(l=>l && !l.startsWith('#'));
       if (lines.length){
@@ -782,12 +775,11 @@ async function detectHlsType(url, depth){
         return await detectHlsType(subUrl, depth+1);
       }
     }
-    return 'live'; // تدفق بلا نهاية معروفة = غالبًا بث مباشر
+    return 'live';
   }catch(e){
-    return null; // تعذر جلب القائمة (CORS أو غيره) — نعتمد على الاحتياط
+    return null;
   }
 }
-// اكتشاف نوع روابط DASH (mpd) من محتوى الـ manifest نفسه: type="dynamic" بث مباشر، type="static" مسجل منتهٍ
 async function detectDashType(url){
   try{
     const res = await fetch(proxied(url), { cache:'no-store' });
@@ -808,256 +800,154 @@ function applyTypeUI(type){
   document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
 }
 function hidePlaceholder(){ document.getElementById('playerPlaceholder').classList.add('hide'); }
-
 function resetPlayerUI(){
   destroyPlayer();
   showPlaceholder('جارِ تحميل البث…');
   document.getElementById('playerWrap').classList.add('show');
   clearTimeout(ctrlTimer);
 }
+
 function destroyPlayer(){
   clearTimeout(loadWatchdog);
-  mpegtsRetries = 0;
+  stopEngines();
+  const existingIframe = document.getElementById('embedFrame');
+  if (existingIframe) existingIframe.remove();
+  video().classList.remove('hide');
+  document.getElementById('ctrlLayer').classList.remove('hide');
+}
+// يوقف محركات التشغيل الحالية فقط، دون لمس واجهة الـ placeholder (تُستخدم بين محاولة ومحاولة داخل السلسلة)
+function stopEngines(){
   if (hlsInst){ try{hlsInst.destroy();}catch(e){} hlsInst=null; }
   if (dashInst){ try{dashInst.reset();}catch(e){} dashInst=null; }
   if (mpegtsInst){ try{mpegtsInst.destroy();}catch(e){} mpegtsInst=null; }
   const v = video();
   try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){}
-  const existingIframe = document.getElementById('embedFrame');
-  if (existingIframe) existingIframe.remove();
-  v.classList.remove('hide');
-  document.getElementById('ctrlLayer').classList.remove('hide');
 }
 
 function normalizeEmbedUrl(url){
-  // يوتيوب
   let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/|youtube\.com\/shorts\/)([\w-]{6,})/i);
   if (m) return { embed:true, url:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
   m = url.match(/youtube\.com\/embed\/([\w-]{6,})/i);
   if (m) return { embed:true, url:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
-  // فيميو
   m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
   if (m) return { embed:true, url:`https://player.vimeo.com/video/${m[1]}?autoplay=1` };
-  // جوجل درايف
   m = url.match(/drive\.google\.com\/file\/d\/([\w-]+)/i);
   if (m) return { embed:true, url:`https://drive.google.com/file/d/${m[1]}/preview` };
-  // ديلي موشن
   m = url.match(/dailymotion\.com\/video\/([\w-]+)/i) || url.match(/dai\.ly\/([\w-]+)/i);
   if (m) return { embed:true, url:`https://www.dailymotion.com/embed/video/${m[1]}?autoplay=1` };
-  // تويتش (فيديو أو بث مباشر لقناة)
   m = url.match(/twitch\.tv\/videos\/(\d+)/i);
   if (m) return { embed:true, url:`https://player.twitch.tv/?video=${m[1]}&parent=${location.hostname}&autoplay=true` };
   m = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)\/?$/i);
   if (m && !/videos|directory|settings/i.test(m[1])) return { embed:true, url:`https://player.twitch.tv/?channel=${m[1]}&parent=${location.hostname}&autoplay=true` };
-  // فيسبوك (فيديو / بث مباشر)
   if (/facebook\.com|fb\.watch/i.test(url)){
     return { embed:true, url:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&autoplay=1&show_text=0` };
   }
-  // أوك.رو
   m = url.match(/ok\.ru\/(?:video|live)\/(\d+)/i);
   if (m) return { embed:true, url:`https://ok.ru/videoembed/${m[1]}` };
-  // رامبل
   m = url.match(/rumble\.com\/embed\/([\w-]+)/i);
   if (m) return { embed:true, url };
-  // أي رابط جاهز أصلاً كصفحة "embed" (منصات أخرى كثيرة تستخدم /embed/ بمساراتها) — يُعرض كما هو مباشرة
   if (/\/embed\//i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
     return { embed:true, url };
   }
   return { embed:false, url };
 }
-function loadSource(url, source){
-  lastUrl = url; // الرابط الأصلي كما هو دائمًا (يُستخدم لإعادة المحاولة عند فشل التحميل)
-  lastSource = source || null;
-  state.currentSource = source || null;
-  destroyPlayer();
-  showPlaceholder('جارِ تحميل البث…');
-  document.getElementById('playerWrap').classList.add('show');
-  clearTimeout(ctrlTimer);
 
-  if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
-  const rawUrl = url.trim();
-
-  // رابط http على صفحة https: المتصفح يمنع تحميله مباشرة (قيد أمان صارم)، فنمرّره عبر بروكسي https
-  // خاص بنا (Supabase Edge Function) يجلبه من طرف السيرفر ويعيد تقديمه كـhttps قابل للتشغيل هنا بشكل طبيعي.
-  // ملاحظة: netUrl هنا يُستخدم فقط لروابط الطلب الواحد (mp4/mpd/ts/تدفق mpegts خام)؛ أما m3u8 فتُمرَّر
-  // بعنوانها الأصلي للودر المخصص (proxyLoader) الذي يعالج كل طلب فرعي (قوائم فرعية/مقاطع) على حدة،
-  // لأن استبدال الرابط الأساسي بالبروكسي منذ البداية يكسر أي مسار نسبي داخل قائمة m3u8 المتداخلة.
-  const netUrl = proxied(rawUrl);
-
-  const m = state.currentMatch;
-  video().poster = (m && m.thumbnail_url) || '';
-
-  /* ===== تحديد نوع الرابط الفعلي (مباشر / مسجل) — نفحص شكل الرابط الأصلي دومًا ===== */
-  // 1) إن حدد الأدمن نوعًا إجباريًا لهذا السيرفر نأخذه كما هو
-  const forcedType = source && source.stream_type && source.stream_type !== 'auto' ? source.stream_type : null;
-  // 2) وإلا نحاول اكتشافه فورًا من امتداد الرابط
-  const extType = forcedType ? null : detectTypeFromExtension(rawUrl);
-  // 3) احتياطًا (قبل اكتمال أي فحص غير متزامن) نعتمد على نوع المباراة نفسه
-  const bestGuess = forcedType || extType || (m && m.type) || 'vod';
-  applyTypeUI(bestGuess);
-  // 4) لو الرابط m3u8/m3u وبلا نوع إجباري: نفحص محتوى القائمة فعليًا (عبر البروكسي إن احتاج) لمعرفة نوعها الحقيقي
-  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(rawUrl)){
-    detectHlsType(rawUrl).then(detected=>{
-      if (detected && lastUrl === url) applyTypeUI(detected);
-    });
-  }
-  if (!forcedType && /\.mpd(\?|#|$)/i.test(rawUrl)){
-    detectDashType(rawUrl).then(detected=>{
-      if (detected && lastUrl === url) applyTypeUI(detected);
-    });
-  }
-
-  const norm = normalizeEmbedUrl(rawUrl);
-  if (norm.embed){
-    // منصة معروفة (يوتيوب/فيميو/درايف...) — تُعرض دائمًا كصفحة مضمّنة بصيغتها الصحيحة القابلة للتضمين
-    showEmbed(norm.url);
-    setupQualityMenu();
-    return;
-  }
-
-  if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
-    playHls(rawUrl); // الرابط الأصلي: اللودر المخصص يعالج البروكسي لكل طلب فرعي على حدة
-  } else if (/\.mpd(\?|#|$)/i.test(rawUrl)){
-    playDash(netUrl);
-  } else if (/\.ts(\?|#|$)/i.test(rawUrl)){
-    if (bestGuess === 'live' || isXtreamLiveUrl(rawUrl)){
-      // تدفق مباشر خام (MPEG-TS مستمر) — لا يمكن تشغيله كملف مسجل واحد، يحتاج محرك mpegts.js
-      playMpegts(netUrl);
+/* ============== محاولات التشغيل: كل محرك يُرجع Promise تُحل عند النجاح الفعلي، وتُرفض عند الفشل ============== */
+function makeTsPlaylistBlob(netUrl){
+  const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${netUrl}\n#EXT-X-ENDLIST`;
+  return URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
+}
+function tryHls(url, isBlobWrap){
+  return new Promise((resolve, reject)=>{
+    const v = video();
+    if (window.Hls && Hls.isSupported()){
+      const loaderCfg = {};
+      const CustomLoader = makeProxyLoader();
+      if (CustomLoader) loaderCfg.loader = CustomLoader;
+      let settled = false;
+      hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
+      hlsInst.loadSource(url);
+      hlsInst.attachMedia(v);
+      hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
+        if (settled) return; settled = true;
+        hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
+        resolve();
+      });
+      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
+        if (data.fatal && !settled){
+          settled = true;
+          reject(new Error('hls-fatal:'+(data.response?data.response.code:(data.details||''))));
+        }
+      });
+    } else if (!isBlobWrap && v.canPlayType('application/vnd.apple.mpegurl')){
+      // دعم HLS الأصلي في سفاري (بلا لودر مخصص؛ سفاري يحسب الروابط الفرعية بنفسه استنادًا لعنوان القائمة)
+      v.src = proxied(url);
+      const onOk=()=>{ cleanup(); hidePlaceholder(); v.play().catch(()=>{}); resolve(); };
+      const onErr=()=>{ cleanup(); reject(new Error('native-hls-failed')); };
+      function cleanup(){ v.removeEventListener('loadedmetadata', onOk); v.removeEventListener('error', onErr); }
+      v.addEventListener('loadedmetadata', onOk, {once:true});
+      v.addEventListener('error', onErr, {once:true});
     } else {
-      // رابط .ts خام لمقطع مسجل منتهٍ: نغلّفه بقائمة تشغيل HLS مصغّرة تلقائيًا ليقرأها المتصفح
-      const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${netUrl}\n#EXT-X-ENDLIST`;
-      const blobUrl = URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
-      playHls(blobUrl, true);
+      reject(new Error('hls-unsupported'));
     }
-  } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(rawUrl)){
-    playNative(netUrl, true);
-  } else {
-    // رابط بدون امتداد واضح (شائع جدًا في بورتالات Xtream Codes: /user/pass/streamID بلا أي امتداد):
-    // نمرر الرابط الأصلي مع المحاولات المختلفة، وكل محاولة تتولى بروكسي طلباتها بنفسها عند الحاجة
-    playUnknown(rawUrl);
-  }
-  bindVideoEvents();
-  // جودات يدوية اختيارية أضافها الأدمن لهذا السيرفر: تعمل بمعزل عن جودات hls.js التلقائية
-  setupQualityMenu();
-
-  // مراقب تحميل: إن ظل التحميل معلقًا بلا خطأ صريح ولا نجاح لأكثر من 15 ثانية، نعرض زر إعادة المحاولة
-  // بدل أن تبقى دائرة التحميل تدور للأبد بدون أي رد فعل (كما يحصل مع بعض روابط IPTV المحجوبة بـ CORS)
-  clearTimeout(loadWatchdog);
-  loadWatchdog = setTimeout(()=>{
-    const ph = document.getElementById('playerPlaceholder');
-    if (lastUrl === url && !ph.classList.contains('hide') && ph.querySelector('.spinner')){
-      showPlaceholder('تعذر تشغيل هذا الرابط، أو أنه يستغرق وقتًا أطول من المعتاد', true);
-    }
-  }, 15000);
+  });
 }
-function playHls(url, isTsWrap){
-  const v = video();
-  if (window.Hls && Hls.isSupported()){
-    const loaderCfg = {};
-    const CustomLoader = makeProxyLoader();
-    if (CustomLoader) loaderCfg.loader = CustomLoader;
-    hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
-    hlsInst.loadSource(url);
-    hlsInst.attachMedia(v);
-    hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
-      hidePlaceholder(); v.play().catch(()=>{});
-      setupQualityMenu();
-    });
-    hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
-      if (data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط (قد يكون محجوبًا CORS من السيرفر نفسه)', true);
-    });
-  } else if (!isTsWrap && v.canPlayType('application/vnd.apple.mpegurl')){
-    // دعم HLS الأصلي في المتصفح (سفاري): لا يوجد لودر مخصص هنا، فنمرر الرابط الأساسي عبر البروكسي مباشرة
-    // (ملاحظة: أي روابط فرعية نسبية داخل القائمة يتولاها سفاري نفسه اعتمادًا على عنوان القائمة المُجلبة)
-    v.src = proxied(url);
-    v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
-    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true), {once:true});
-  } else {
-    showPlaceholder('تعذر تشغيل هذا الرابط', true);
-  }
-}
-function playDash(url){
-  const v = video();
-  if (window.dashjs){
+function tryDash(url){
+  return new Promise((resolve, reject)=>{
+    if (!window.dashjs){ reject(new Error('dash-unsupported')); return; }
+    let settled = false;
+    const v = video();
     dashInst = dashjs.MediaPlayer().create();
     dashInst.updateSettings({ streaming:{ text:{ defaultEnabled:false } } });
     dashInst.initialize(v, url, true);
-    dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ hidePlaceholder(); });
-    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ showPlaceholder('تعذر تشغيل هذا الرابط', true); });
-  } else {
-    showPlaceholder('تعذر تشغيل هذا الرابط', true);
-  }
-}
-// تشغيل تدفق MPEG-TS خام مستمر (شائع في بورتالات Xtream Codes) عبر mpegts.js + Media Source Extensions
-let mpegtsRetries = 0;
-function playMpegts(url){
-  const v = video();
-  if (!(window.mpegts && mpegts.isSupported())){
-    // لا دعم MSE هنا: جرّب كـ HLS كحل بديل قبل الاستسلام
-    playHls(url, true);
-    return;
-  }
-  mpegtsInst = mpegts.createPlayer({ type:'mse', isLive:true, url, hasAudio:true, hasVideo:true });
-  mpegtsInst.attachMediaElement(v);
-  mpegtsInst.on(mpegts.Events.ERROR, ()=>{
-    try{mpegtsInst.destroy();}catch(e){} mpegtsInst=null;
-    // بعض بروكسيات السيرفرلس (Supabase Edge Functions) تقطع الاتصالات الطويلة جدًا بعد مهلة تنفيذ معينة؛
-    // هذا يظهر كخطأ اتصال مفاجئ رغم أن الرابط سليم — نعيد فتح الاتصال بضع مرات أولاً بدل الاستسلام فورًا
-    if (mpegtsRetries < 3 && lastUrl){
-      mpegtsRetries++;
-      setTimeout(()=>{ if (lastUrl) playMpegts(url); }, 800);
-      return;
-    }
-    mpegtsRetries = 0;
-    // فشل mpegts.js نهائيًا (قد لا يكون التدفق MPEG-TS خامًا فعلاً) — جرّب HLS كحل بديل
-    playHls(url, true);
+    dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ if(settled)return; settled=true; hidePlaceholder(); resolve(); });
+    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ if(settled)return; settled=true; reject(new Error('dash-fatal')); });
   });
-  v.addEventListener('loadeddata', ()=>{ hidePlaceholder(); mpegtsRetries=0; v.play().catch(()=>{}); }, {once:true});
-  mpegtsInst.load();
-  mpegtsInst.play();
 }
-function playUnknown(rawUrl){
-  // رابط بلا امتداد واضح: قد يكون بث HLS بمسار مقنّع، تدفق MPEG-TS خام (Xtream)، فيديو مباشر، أو صفحة مضمّنة.
-  // نجرّب أولاً كقائمة HLS بالرابط الأصلي (مع اللودر المخصص الذي يبروكسي كل طلب فرعي على حدة)، فإن فشل
-  // ننتقل لمحرك MPEG-TS الخام على رابط مُبروكسى دفعة واحدة (تدفق واحد مستمر بلا مسارات فرعية عادةً)
-  const v = video();
-  const xtream = isXtreamLiveUrl(rawUrl);
-  if (xtream && window.mpegts && mpegts.isSupported()){
-    playMpegts(proxied(rawUrl));
-    return;
-  }
-  if (window.Hls && Hls.isSupported()){
-    const loaderCfg = {};
-    const CustomLoader = makeProxyLoader();
-    if (CustomLoader) loaderCfg.loader = CustomLoader;
-    hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
-    hlsInst.loadSource(rawUrl);
-    hlsInst.attachMedia(v);
-    hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{ hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu(); });
-    hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
-      if (data.fatal){
-        try{hlsInst.destroy();}catch(e){} hlsInst=null;
-        if (window.mpegts && mpegts.isSupported()) playMpegts(proxied(rawUrl));
-        else playNative(proxied(rawUrl), false);
-      }
-    });
-  } else if (window.mpegts && mpegts.isSupported()){
-    playMpegts(proxied(rawUrl));
-  } else {
-    playNative(proxied(rawUrl), false);
-  }
+// تشغيل تدفق MPEG-TS خام مستمر (شائع في بورتالات Xtream). يميّز بين فشل الاتصال الأولي (يرفض ليجرّب محركًا
+// آخر) وبين انقطاع أثناء التشغيل الفعلي بعد النجاح (يعيد الاتصال بهدوء تلقائيًا بدل إظهار أي خطأ للمستخدم،
+// لأن هذا شائع مع بروكسيات السيرفرلس التي تقطع الاتصالات الطويلة جدًا بعد سقف زمن تنفيذ معيّن)
+function tryMpegts(url){
+  return new Promise((resolve, reject)=>{
+    if (!(window.mpegts && mpegts.isSupported())){ reject(new Error('mpegts-unsupported')); return; }
+    const v = video();
+    let settled = false, runtimeRetries = 0;
+    function attach(){
+      mpegtsInst = mpegts.createPlayer({ type:'mse', isLive:true, url, hasAudio:true, hasVideo:true });
+      mpegtsInst.attachMediaElement(v);
+      mpegtsInst.on(mpegts.Events.ERROR, ()=>{
+        try{ mpegtsInst.destroy(); }catch(e){}
+        mpegtsInst = null;
+        if (!settled){ settled = true; reject(new Error('mpegts-fatal')); return; }
+        if (runtimeRetries < 4){
+          runtimeRetries++;
+          setTimeout(()=>{ if (video() === v && v.closest('body')) attach(); }, 900);
+        }
+      });
+      v.addEventListener('loadeddata', ()=>{
+        if (settled) return; settled = true;
+        hidePlaceholder(); v.play().catch(()=>{});
+        resolve();
+      }, {once:true});
+      mpegtsInst.load();
+      mpegtsInst.play();
+    }
+    attach();
+  });
 }
-function playNative(url, isFinalAttempt){
-  const v = video();
-  v.src = url;
-  const onOk = ()=>{ hidePlaceholder(); v.play().catch(()=>{}); v.removeEventListener('error', onErr); };
-  const onErr = ()=>{
-    v.removeEventListener('loadedmetadata', onOk);
-    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا الرابط', true); }
-    else { showEmbed(url); }
-  };
-  v.addEventListener('loadedmetadata', onOk, {once:true});
-  v.addEventListener('error', onErr, {once:true});
+function tryNative(url){
+  return new Promise((resolve, reject)=>{
+    const v = video();
+    v.src = url;
+    const onOk=()=>{ cleanup(); hidePlaceholder(); v.play().catch(()=>{}); resolve(); };
+    const onErr=()=>{ cleanup(); reject(new Error('native-fatal')); };
+    function cleanup(){ v.removeEventListener('loadedmetadata', onOk); v.removeEventListener('error', onErr); }
+    v.addEventListener('loadedmetadata', onOk, {once:true});
+    v.addEventListener('error', onErr, {once:true});
+  });
+}
+function tryEmbedFallback(url){
+  return new Promise((resolve)=>{ showEmbed(url); resolve(); });
 }
 function showEmbed(url){
   hidePlaceholder();
@@ -1067,6 +957,128 @@ function showEmbed(url){
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
   document.getElementById('playerWrap').appendChild(f);
+}
+
+// يبني ترتيب محاولات التشغيل المناسب حسب شكل الرابط، بحيث لو فشل محرك ننتقل تلقائيًا للتالي بلا توقف
+function buildEngineList(rawUrl, netUrl, bestGuess){
+  const list = [];
+  if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryHls(rawUrl) });
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    list.push({ fn:()=>tryNative(netUrl) });
+  } else if (/\.mpd(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryDash(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+  } else if (/\.ts(\?|#|$)/i.test(rawUrl)){
+    if (bestGuess === 'live' || isXtreamLiveUrl(rawUrl)){
+      list.push({ fn:()=>tryMpegts(netUrl) });
+      list.push({ fn:()=>tryHls(makeTsPlaylistBlob(netUrl), true) });
+    } else {
+      list.push({ fn:()=>tryHls(makeTsPlaylistBlob(netUrl), true) });
+      list.push({ fn:()=>tryNative(netUrl) });
+    }
+  } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryNative(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+  } else {
+    // بلا امتداد واضح: الشكل الأشيع لروابط بورتالات Xtream — نجرب كل المحركات المحتملة بالترتيب الأنسب
+    if (isXtreamLiveUrl(rawUrl)){
+      list.push({ fn:()=>tryMpegts(netUrl) });
+      list.push({ fn:()=>tryHls(rawUrl) });
+      list.push({ fn:()=>tryNative(netUrl) });
+    } else {
+      list.push({ fn:()=>tryHls(rawUrl) });
+      list.push({ fn:()=>tryNative(netUrl) });
+      list.push({ fn:()=>tryMpegts(netUrl) });
+    }
+    list.push({ fn:()=>tryEmbedFallback(netUrl) }); // ملاذ أخير: قد يكون أصلاً صفحة ويب وليس ملف فيديو
+  }
+  return list;
+}
+function engineTimeout(ms){
+  return new Promise((_,rej)=>setTimeout(()=>rej(new Error('engine-timeout')), ms));
+}
+async function runEngineChain(originalUrl, engines){
+  for (let i=0; i<engines.length; i++){
+    if (lastUrl !== originalUrl) return true; // المستخدم غيّر المصدر أثناء المحاولة — نتوقف بصمت
+    if (i > 0) showPlaceholder('جارِ تجربة طريقة تشغيل أخرى…');
+    try{
+      await Promise.race([ engines[i].fn(), engineTimeout(12000) ]);
+      return true;
+    }catch(e){
+      stopEngines();
+    }
+  }
+  return lastUrl !== originalUrl;
+}
+
+// تشخيص حقيقي لسبب فشل كل المحاولات: نتحقق من استجابة الرابط فعليًا (عبر البروكسي إن احتاج) ونعرض
+// السبب الدقيق للمستخدم (رفض مصادقة، رابط غير موجود، مهلة شبكة...) بدل رسالة عامة لا تفيد في التشخيص
+async function preflightDiagnose(netUrl){
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 8000);
+    const res = await fetch(netUrl, { signal: ctrl.signal, cache:'no-store' });
+    clearTimeout(t);
+    return { reached:true, status: res.status, ok: res.ok };
+  }catch(e){
+    return { reached:false, timedOut: e.name === 'AbortError' };
+  }
+}
+function diagMessage(diag){
+  if (!diag.reached){
+    return diag.timedOut
+      ? 'تعذر تشغيل الرابط: السيرفر لا يستجيب (انتهت المهلة)'
+      : 'تعذر تشغيل الرابط: تعذر الوصول للسيرفر — تحقق من اتصال الإنترنت';
+  }
+  if (diag.status === 401 || diag.status === 403) return `تعذر تشغيل الرابط: مرفوض من السيرفر (${diag.status}) — تحقق من صلاحية الاشتراك أو بيانات الدخول`;
+  if (diag.status === 404) return 'تعذر تشغيل الرابط: القناة أو الرابط غير موجود (404)';
+  if (diag.status === 511) return 'تعذر تشغيل الرابط: الشبكة الحالية تطلب تسجيل دخول أولاً (511) — تحقق من اتصال الواي فاي/بيانات الجوال';
+  if (diag.status >= 500) return `تعذر تشغيل الرابط: خطأ من السيرفر (${diag.status})`;
+  if (!diag.ok) return `تعذر تشغيل الرابط (كود الاستجابة ${diag.status})`;
+  return 'تعذر تشغيل هذا الرابط رغم استجابة السيرفر — قد تكون صيغته غير مدعومة في المشغل';
+}
+
+async function loadSource(url, source){
+  lastUrl = url; // الرابط الأصلي كما هو دائمًا (يُستخدم لإعادة المحاولة، وللتحقق من عدم تغييره أثناء المحاولات)
+  lastSource = source || null;
+  state.currentSource = source || null;
+  resetPlayerUI();
+
+  if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
+  const rawUrl = url.trim();
+  const netUrl = proxied(rawUrl);
+
+  const m = state.currentMatch;
+  video().poster = (m && m.thumbnail_url) || '';
+
+  const forcedType = source && source.stream_type && source.stream_type !== 'auto' ? source.stream_type : null;
+  const extType = forcedType ? null : detectTypeFromExtension(rawUrl);
+  const bestGuess = forcedType || extType || (m && m.type) || 'vod';
+  applyTypeUI(bestGuess);
+  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    detectHlsType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
+  }
+  if (!forcedType && /\.mpd(\?|#|$)/i.test(rawUrl)){
+    detectDashType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
+  }
+
+  const norm = normalizeEmbedUrl(rawUrl);
+  if (norm.embed){
+    showEmbed(norm.url);
+    setupQualityMenu();
+    return;
+  }
+
+  bindVideoEvents();
+  setupQualityMenu();
+
+  const engines = buildEngineList(rawUrl, netUrl, bestGuess);
+  const ok = await runEngineChain(url, engines);
+  if (!ok && lastUrl === url){
+    const diag = await preflightDiagnose(netUrl);
+    if (lastUrl === url) showPlaceholder(diagMessage(diag), true);
+  }
 }
 
 let boundOnce=false;
