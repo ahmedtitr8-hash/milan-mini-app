@@ -171,7 +171,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .seek-row input[type=range]{flex:1;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.25);border-radius:3px;}
 .seek-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--acc);}
 .time-txt{font-size:10px;color:#ddd;min-width:34px;text-align:center;}
-.bottom-btns{display:flex;align-items:center;justify-content:space-between;}
+.bottom-btns{display:flex;align-items:center;justify-content:center;gap:28px;}
 .bottom-btns .left,.bottom-btns .right{display:flex;align-items:center;gap:14px;}
 .bottom-btns button svg{width:19px;height:19px;fill:#fff;}
 .live-flat{font-size:11px;font-weight:800;color:var(--live);display:flex;align-items:center;gap:5px;}
@@ -335,7 +335,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
                 <button onclick="toggleFS()" id="btnFS"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
               </div>
             </div>
-            <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:80px;background:rgba(20,20,20,.96);
+            <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;" onclick="event.stopPropagation()">
               <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
               <div style="height:1px;background:var(--border)"></div>
@@ -347,7 +347,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
               <div style="height:1px;background:var(--border)"></div>
               <div data-ar="16x9" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عرضي 16:9</div>
             </div>
-            <div id="qualityMenu" class="hide" style="position:absolute;bottom:46px;left:12px;background:rgba(20,20,20,.96);
+            <div id="qualityMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:110px;" onclick="event.stopPropagation()"></div>
           </div>
         </div>
@@ -1292,25 +1292,20 @@ function toggleFS(){
   }
 
   // داخل تيليجرام: نوسّع تطبيق تيليجرام نفسه ليغطي الشاشة (يخفي هيدر تيليجرام وواجهته الخاصة)
+  // ⚠️ عمدًا لا نستخدم tg.lockOrientation ولا screen.orientation.lock هنا: كلاهما لا يُدوّران الجهاز
+  // فعليًا في هذه البيئة (بيئة WebView داخل تطبيق تيليجرام)، بل فقط "يوهمان" سطح عرض صفحتنا بأنه landscape
+  // بينما هيدر تيليجرام الأصلي (الذي لا نتحكم فيه) يبقى كما هو — فتظهر صفحتنا كاملة (الفيديو وأزراره)
+  // مقلوبة 90 درجة بلا أي فائدة حقيقية. الأصدق والأكثر استقرارًا: نترك الفيديو مستقيمًا دائمًا ونكبّره
+  // ليملأ المساحة الحقيقية المتاحة فقط (عبر كلاس .fs وخاصية object-fit:contain، بلا أي تدوير مطلقًا).
   if (tg && typeof tg.requestFullscreen === 'function'){
     try{ tg.requestFullscreen(); }catch(e){}
-    if (typeof tg.lockOrientation === 'function'){ try{ tg.lockOrientation('landscape'); }catch(e){} }
   }
 
   // فول سكرين حقيقي على مستوى الجهاز: نطلبه على عنصر <html> الجذري كاملاً وليس على عنصر المشغل فقط.
-  // طلب الفول سكرين على عنصر داخلي فرعي (كما كان سابقًا) يجعل المتصفح يكبّر ذلك العنصر فقط داخل نافذته،
-  // بينما شريط المتصفح/واجهة التطبيق المحيطة تبقى ظاهرة أحيانًا — أي "لف للمشغل وليس للجهاز" كما لوحظ.
-  // بطلبه على <html> نفسها، يُخفي المتصفح كل واجهته الخاصة فعليًا ويعطي الصفحة كامل شاشة الجهاز.
   const root = document.documentElement;
   const reqFS = root.requestFullscreen || root.webkitRequestFullscreen || root.mozRequestFullScreen || root.msRequestFullscreen;
-  if (reqFS){
-    Promise.resolve(reqFS.call(root)).then(()=>{
-      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
-    }).catch(()=>{});
-  }
+  if (reqFS){ Promise.resolve(reqFS.call(root)).catch(()=>{}); }
 
-  // نكبّر عنصر المشغل بصريًا ليملأ كامل الشاشة عبر كلاس .fs؛ الاتجاه الفعلي الحالي (media query في CSS)
-  // يحدد تلقائيًا هل نحتاج تدويرًا بصريًا (لو ظل الجهاز عموديًا فعليًا) أو لا (لو نجح قفل الاتجاه ودار الجهاز حقًا)
   w.classList.add('fs');
   showCtrl();
 }
@@ -1321,13 +1316,11 @@ function exitFS(){
   w.classList.remove('fs');
   document.body.classList.remove('fs-lock');
   if (tg && typeof tg.exitFullscreen === 'function'){ try{ tg.exitFullscreen(); }catch(e){} }
-  if (tg && typeof tg.unlockOrientation === 'function'){ try{ tg.unlockOrientation(); }catch(e){} }
   const exitter = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
   if ((document.fullscreenElement || document.webkitFullscreenElement) && exitter){
     try{ exitter.call(document); }catch(e){}
   }
   if (video().webkitDisplayingFullscreen && video().webkitExitFullscreen){ try{ video().webkitExitFullscreen(); }catch(e){} }
-  if (screen.orientation && screen.orientation.unlock) try{screen.orientation.unlock();}catch(e){}
 }
 ['fullscreenchange','webkitfullscreenchange'].forEach(evt=>{
   document.addEventListener(evt, ()=>{
