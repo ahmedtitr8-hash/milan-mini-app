@@ -1,3 +1,7 @@
 #EXTM3U
-#EXTINF:1 tvg-name="Bein" tvg-logo="" group-title="الفئة الأولى",Bein
+#EXTINF:1 tvg-name="القناة الأولى" tvg-logo="" group-title="الفئة الأولى",القناة الأولى
 http://www.r56mail.bingo/live/xasez13/aHnr65d/112542.m3u8
+#EXTINF:1 tvg-name="القناة 2" tvg-logo="" group-title="الفئة الأولى",القناة 2
+http://www.r56mail.bingo/live/xasez13/aHnr65d/112541.m3u8
+#EXTINF:1 tvg-name="القناة 3" tvg-logo="" group-title="الفئة الأولى",القناة 3
+http://www.r56mail.bingo/live/xasez13/aHnr65d/1125438.m3u8
