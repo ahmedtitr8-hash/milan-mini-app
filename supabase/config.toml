@@ -1,0 +1,4 @@
+# هذا الإعداد أساسي وليس اختياريًا: بدونه سترفض بوابة Supabase أي طلب لهذه الفانكشن بخطأ 401
+# لأنها تُستدعى مباشرة من <video src> ومن hls.js/mpegts.js كرابط شبكة عادي بلا Authorization header.
+[functions.stream-proxy]
+verify_jwt = false
