@@ -165,22 +165,23 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .bottom-btns button svg{width:19px;height:19px;fill:#fff;}
 .live-flat{font-size:11px;font-weight:800;color:var(--live);display:flex;align-items:center;gap:5px;}
 
-/* fullscreen (تدوير CSS يعمل في الميني آب/الويبفيو) */
+/* فول سكرين: نعتمد دائمًا على كلاس .fs + الاتجاه الفعلي الحالي للجهاز (media query) بدل الاعتماد
+   على أي واجهة فول سكرين واحدة بعينها — لأن بعضها (مثل فول سكرين تيليجرام نفسه) يخفي الشريط العلوي
+   فقط ولا يكبّر عنصر الفيديو تلقائيًا، فنحتاج نكبّره نحن بأنفسنا دائمًا بغض النظر عن الطريقة الناجحة */
 body.fs-lock{overflow:hidden!important;}
 body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:none!important;}
+#playerWrap.fs{position:fixed!important;top:0;left:0;z-index:9999!important;background:#000!important;}
 @media (orientation:portrait){
   #playerWrap.fs{
-    position:fixed!important;top:0;left:0;width:100dvh!important;height:100dvw!important;
+    width:100dvh!important;height:100dvw!important;
     max-height:none!important;aspect-ratio:unset!important;transform-origin:0 0;
-    transform:rotate(90deg) translateY(-100%)!important;z-index:9999!important;background:#000!important;
+    transform:rotate(90deg) translateY(-100%)!important;
   }
 }
 @media (orientation:landscape){
-  #playerWrap.fs{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;
-    max-height:none!important;aspect-ratio:unset!important;transform:none!important;z-index:9999!important;background:#000!important;}
+  #playerWrap.fs{inset:0!important;width:100%!important;height:100%!important;
+    max-height:none!important;aspect-ratio:unset!important;transform:none!important;}
 }
-#playerWrap:fullscreen{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;
-  max-height:none!important;aspect-ratio:unset!important;transform:none!important;background:#000!important;}
 
 .below-player{padding:14px;}
 .tabs-row{display:flex;gap:10px;margin-bottom:14px;}
@@ -352,6 +353,9 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
 /* ============== إعداد Supabase ============== */
 const SUPABASE_URL = 'https://ckriyvqnrzravknajckl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_rFMfYa3nWxyxp6_zYUdtCw_znCYEKfV';
+// بروكسي https لروابط IPTV/Xtream التي تكون http فقط: يحوّلها فعليًا لرابط https قابل للتشغيل هنا مباشرة
+// (بدون هذا، يمنع المتصفح نفسه أي رابط http داخل صفحة https كقيد أمان لا يمكن تجاوزه بأي كود آخر)
+const STREAM_PROXY = `${SUPABASE_URL}/functions/v1/stream-proxy`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ============== Telegram Mini App ============== */
@@ -696,11 +700,16 @@ let mpegtsInst=null;
 const video = ()=>document.getElementById('mainVideo');
 let isPlayingState=false, isMuted=false, isFull=false, ctrlTimer=null;
 
-function showPlaceholder(msg, showRetry){
+function showPlaceholder(msg, showRetry, externalUrl){
   const p=document.getElementById('playerPlaceholder');
-  p.innerHTML = showRetry
-    ? `<span>${msg}</span><button onclick="retryCurrentSource()" style="margin-top:6px;padding:8px 18px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;">إعادة المحاولة</button>`
-    : `<div class="spinner"></div><span>${msg}</span>`;
+  if (!showRetry){
+    p.innerHTML = `<div class="spinner"></div><span>${msg}</span>`;
+  } else {
+    const openBtn = externalUrl
+      ? `<button onclick="window.open('${externalUrl.replace(/'/g,"\\'")}','_blank')" style="margin-top:8px;padding:8px 18px;border-radius:8px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:700;font-size:11px;">فتح الرابط في تطبيق/متصفح خارجي</button>`
+      : '';
+    p.innerHTML = `<span>${msg}</span><button onclick="retryCurrentSource()" style="margin-top:6px;padding:8px 18px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;">إعادة المحاولة</button>${openBtn}`;
+  }
   p.classList.remove('hide');
 }
 let lastUrl = null;
@@ -824,7 +833,7 @@ function normalizeEmbedUrl(url){
   return { embed:false, url };
 }
 function loadSource(url, source){
-  lastUrl = url;
+  lastUrl = url; // الرابط الأصلي كما هو دائمًا (تُستخدم لإعادة المحاولة وفتحه خارجيًا لاحقًا)
   lastSource = source || null;
   state.currentSource = source || null;
   destroyPlayer();
@@ -832,64 +841,64 @@ function loadSource(url, source){
   document.getElementById('playerWrap').classList.add('show');
   clearTimeout(ctrlTimer);
 
-  // فحص Mixed Content: الصفحة https والرابط http — المتصفح يمنعه تلقائيًا ولا حل بدون تحويل الرابط نفسه لـ https
-  if (location.protocol === 'https:' && /^http:\/\//i.test(url.trim())){
-    showPlaceholder('تعذر تشغيل هذا الرابط', true);
-    return;
-  }
+  if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
+  const rawUrl = url.trim();
+
+  // رابط http على صفحة https: المتصفح يمنع تحميله مباشرة (قيد أمان صارم)، فنمرّره عبر بروكسي https
+  // خاص بنا (Supabase Edge Function) يجلبه من طرف السيرفر ويعيد تقديمه كـhttps قابل للتشغيل هنا بشكل طبيعي
+  const needsProxy = location.protocol === 'https:' && /^http:\/\//i.test(rawUrl);
+  const netUrl = needsProxy ? `${STREAM_PROXY}?url=${encodeURIComponent(rawUrl)}` : rawUrl;
 
   const m = state.currentMatch;
   video().poster = (m && m.thumbnail_url) || '';
 
-  /* ===== تحديد نوع الرابط الفعلي (مباشر / مسجل) ===== */
+  /* ===== تحديد نوع الرابط الفعلي (مباشر / مسجل) — نفحص شكل الرابط الأصلي دومًا ===== */
   // 1) إن حدد الأدمن نوعًا إجباريًا لهذا السيرفر نأخذه كما هو
   const forcedType = source && source.stream_type && source.stream_type !== 'auto' ? source.stream_type : null;
   // 2) وإلا نحاول اكتشافه فورًا من امتداد الرابط
-  const extType = forcedType ? null : detectTypeFromExtension(url);
+  const extType = forcedType ? null : detectTypeFromExtension(rawUrl);
   // 3) احتياطًا (قبل اكتمال أي فحص غير متزامن) نعتمد على نوع المباراة نفسه
   const bestGuess = forcedType || extType || (m && m.type) || 'vod';
   applyTypeUI(bestGuess);
-  // 4) لو الرابط m3u8/m3u وبلا نوع إجباري: نفحص محتوى القائمة فعليًا لمعرفة إن كانت بثًا حيًا أو مسجلاً منتهيًا
-  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(url)){
-    detectHlsType(url).then(detected=>{
+  // 4) لو الرابط m3u8/m3u وبلا نوع إجباري: نفحص محتوى القائمة فعليًا (عبر البروكسي إن احتاج) لمعرفة نوعها الحقيقي
+  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    detectHlsType(netUrl).then(detected=>{
       if (detected && lastUrl === url) applyTypeUI(detected);
     });
   }
-  if (!forcedType && /\.mpd(\?|#|$)/i.test(url)){
-    detectDashType(url).then(detected=>{
+  if (!forcedType && /\.mpd(\?|#|$)/i.test(rawUrl)){
+    detectDashType(netUrl).then(detected=>{
       if (detected && lastUrl === url) applyTypeUI(detected);
     });
   }
 
-  if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
-
-  const norm = normalizeEmbedUrl(url.trim());
+  const norm = normalizeEmbedUrl(rawUrl);
   if (norm.embed){
-    // منصة معروفة (يوتيوب/فيميو/درايف) — تُعرض دائمًا كصفحة مضمّنة بصيغتها الصحيحة القابلة للتضمين
+    // منصة معروفة (يوتيوب/فيميو/درايف...) — تُعرض دائمًا كصفحة مضمّنة بصيغتها الصحيحة القابلة للتضمين
     showEmbed(norm.url);
     setupQualityMenu();
     return;
   }
 
-  if (/\.m3u8?(\?|#|$)/i.test(url)){
-    playHls(url);
-  } else if (/\.mpd(\?|#|$)/i.test(url)){
-    playDash(url);
-  } else if (/\.ts(\?|#|$)/i.test(url)){
-    if (bestGuess === 'live' || isXtreamLiveUrl(url)){
+  if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    playHls(netUrl);
+  } else if (/\.mpd(\?|#|$)/i.test(rawUrl)){
+    playDash(netUrl);
+  } else if (/\.ts(\?|#|$)/i.test(rawUrl)){
+    if (bestGuess === 'live' || isXtreamLiveUrl(rawUrl)){
       // تدفق مباشر خام (MPEG-TS مستمر) — لا يمكن تشغيله كملف مسجل واحد، يحتاج محرك mpegts.js
-      playMpegts(url);
+      playMpegts(netUrl);
     } else {
       // رابط .ts خام لمقطع مسجل منتهٍ: نغلّفه بقائمة تشغيل HLS مصغّرة تلقائيًا ليقرأها المتصفح
-      const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${url}\n#EXT-X-ENDLIST`;
+      const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${netUrl}\n#EXT-X-ENDLIST`;
       const blobUrl = URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
       playHls(blobUrl, true);
     }
-  } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)){
-    playNative(url, true);
+  } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(rawUrl)){
+    playNative(netUrl, true);
   } else {
     // رابط بدون امتداد واضح (شائع في بورتالات Xtream Codes): نجرّب المحركات الأنجح حسب الشكل
-    playUnknown(url);
+    playUnknown(netUrl, rawUrl);
   }
   bindVideoEvents();
   // جودات يدوية اختيارية أضافها الأدمن لهذا السيرفر: تعمل بمعزل عن جودات hls.js التلقائية
@@ -901,12 +910,13 @@ function loadSource(url, source){
   loadWatchdog = setTimeout(()=>{
     const ph = document.getElementById('playerPlaceholder');
     if (lastUrl === url && !ph.classList.contains('hide') && ph.querySelector('.spinner')){
-      showPlaceholder('تعذر تشغيل هذا الرابط، أو أنه يستغرق وقتًا أطول من المعتاد', true);
+      showPlaceholder('تعذر تشغيل هذا الرابط، أو أنه يستغرق وقتًا أطول من المعتاد', true, url);
     }
   }, 15000);
 }
 function playHls(url, isTsWrap){
   const v = video();
+  const extUrl = isTsWrap ? null : url; // لا نعرض فتحًا خارجيًا لرابط blob مصغّر داخلي (isTsWrap)
   if (window.Hls && Hls.isSupported()){
     hlsInst = new Hls({ enableWorker:true });
     hlsInst.loadSource(url);
@@ -916,14 +926,14 @@ function playHls(url, isTsWrap){
       setupQualityMenu();
     });
     hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
-      if (data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط', true);
+      if (data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط (قد يكون محجوبًا CORS من السيرفر نفسه)', true, extUrl);
     });
   } else if (!isTsWrap && v.canPlayType('application/vnd.apple.mpegurl')){
     v.src = url;
     v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
-    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true), {once:true});
+    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true, extUrl), {once:true});
   } else {
-    showPlaceholder('تعذر تشغيل هذا الرابط', true);
+    showPlaceholder('تعذر تشغيل هذا الرابط', true, extUrl);
   }
 }
 function playDash(url){
@@ -933,9 +943,9 @@ function playDash(url){
     dashInst.updateSettings({ streaming:{ text:{ defaultEnabled:false } } });
     dashInst.initialize(v, url, true);
     dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ hidePlaceholder(); });
-    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ showPlaceholder('تعذر تشغيل هذا الرابط', true); });
+    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ showPlaceholder('تعذر تشغيل هذا الرابط', true, url); });
   } else {
-    showPlaceholder('تعذر تشغيل هذا الرابط', true);
+    showPlaceholder('تعذر تشغيل هذا الرابط', true, url);
   }
 }
 // تشغيل تدفق MPEG-TS خام مستمر (شائع في بورتالات Xtream Codes) عبر mpegts.js + Media Source Extensions
@@ -957,10 +967,11 @@ function playMpegts(url){
   mpegtsInst.load();
   mpegtsInst.play();
 }
-function playUnknown(url){
+function playUnknown(url, rawUrlForCheck){
   // رابط بلا امتداد واضح: قد يكون بث HLS بمسار مقنّع، تدفق MPEG-TS خام (Xtream)، فيديو مباشر، أو صفحة مضمّنة
   const v = video();
-  if (isXtreamLiveUrl(url) && window.mpegts && mpegts.isSupported()){
+  const xtream = isXtreamLiveUrl(rawUrlForCheck || url);
+  if (xtream && window.mpegts && mpegts.isSupported()){
     playMpegts(url);
     return;
   }
@@ -988,7 +999,7 @@ function playNative(url, isFinalAttempt){
   const onOk = ()=>{ hidePlaceholder(); v.play().catch(()=>{}); v.removeEventListener('error', onErr); };
   const onErr = ()=>{
     v.removeEventListener('loadedmetadata', onOk);
-    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا الرابط', true); }
+    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا الرابط', true, url); }
     else { showEmbed(url); }
   };
   v.addEventListener('loadedmetadata', onOk, {once:true});
@@ -1130,35 +1141,29 @@ function toggleFS(){
   isFull = true;
   document.body.classList.add('fs-lock');
 
-  // 1) داخل تيليجرام: نطلب من تطبيق تيليجرام نفسه الفول سكرين الحقيقي — هذا الوحيد القادر على
-  //    إخفاء شريط تيليجرام العلوي فعليًا (الشريط الذي يظل ظاهرًا لأنه من تطبيق تيليجرام لا من صفحتنا)
-  let askedTelegram = false;
-  if (tg && typeof tg.requestFullscreen === 'function'){
-    try{ tg.requestFullscreen(); askedTelegram = true; }catch(e){}
-    if (typeof tg.lockOrientation === 'function'){ try{ tg.lockOrientation('landscape'); }catch(e){} }
-  }
-
-  // 2) فول سكرين الفيديو الأصلي على iOS Safari: يدوّر الجهاز فعليًا تلقائيًا (تدوير حقيقي من النظام، لا CSS)
+  // على iOS: فول سكرين الفيديو الأصلي مسار مستقل تمامًا يدوّر الجهاز فعليًا عبر النظام نفسه — لا حاجة لأي شيء آخر
   if (v.webkitEnterFullscreen && !document.getElementById('embedFrame')){
     try{ v.webkitEnterFullscreen(); showCtrl(); return; }catch(e){}
   }
 
-  // 3) فول سكرين المتصفح القياسي (Fullscreen API) + قفل اتجاه حقيقي للجهاز (يعمل على أندرويد كروم وغيره)
-  let askedRealFs = false;
+  // داخل تيليجرام: نطلب إخفاء شريطه العلوي فعليًا — لكن هذا وحده لا يكبّر عنصر الفيديو نفسه،
+  // فقط يوسّع مساحة صفحتنا؛ التكبير الفعلي للمشغل نتولاه نحن بأنفسنا بكلاس .fs أدناه بكل الحالات
+  if (tg && typeof tg.requestFullscreen === 'function'){
+    try{ tg.requestFullscreen(); }catch(e){}
+    if (typeof tg.lockOrientation === 'function'){ try{ tg.lockOrientation('landscape'); }catch(e){} }
+  }
+  // فول سكرين المتصفح القياسي + قفل اتجاه حقيقي للجهاز إن كان مدعومًا (يعمل بجانب فول سكرين تيليجرام إن توفر)
   if (w.requestFullscreen){
     w.requestFullscreen().then(()=>{
       if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
     }).catch(()=>{});
-    askedRealFs = true;
   } else if (w.webkitRequestFullscreen){
     w.webkitRequestFullscreen();
-    askedRealFs = true;
   }
 
-  // 4) حل بديل أخير فقط إن تعذّرت كل الطرق الحقيقية أعلاه: محاكاة بصرية بتدوير CSS (ليست تدويرًا حقيقيًا للجهاز)
-  if (!askedTelegram && !askedRealFs){
-    w.classList.add('fs');
-  }
+  // نكبّر المشغل ليملأ الشاشة دائمًا؛ الاتجاه الفعلي الحالي (media query في CSS) يحدد تلقائيًا هل
+  // نحتاج تدويرًا بصريًا (لو ظل الجهاز عموديًا فعليًا) أو لا (لو نجح قفل الاتجاه ودار الجهاز حقًا)
+  w.classList.add('fs');
   showCtrl();
 }
 function exitFS(){
@@ -1174,21 +1179,16 @@ function exitFS(){
 }
 document.addEventListener('fullscreenchange', ()=>{
   if (!document.fullscreenElement && isFull && !(video().webkitDisplayingFullscreen)){
-    isFull=false;
-    document.getElementById('playerWrap').classList.remove('fs');
-    document.body.classList.remove('fs-lock');
+    exitFS();
   }
 });
 if (window.Telegram && window.Telegram.WebApp && typeof Telegram.WebApp.onEvent === 'function'){
   // إن أنهى المستخدم الفول سكرين من داخل تيليجرام نفسه (بدون زرّنا)، نُبقي حالة الواجهة متزامنة
   Telegram.WebApp.onEvent('fullscreenChanged', ()=>{
-    if (!Telegram.WebApp.isFullscreen && isFull){
-      isFull=false;
-      document.getElementById('playerWrap').classList.remove('fs');
-      document.body.classList.remove('fs-lock');
-    }
+    if (!Telegram.WebApp.isFullscreen && isFull) exitFS();
   });
 }
+
 </script>
 </body>
 </html>
