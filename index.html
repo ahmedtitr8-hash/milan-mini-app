@@ -700,16 +700,11 @@ let mpegtsInst=null;
 const video = ()=>document.getElementById('mainVideo');
 let isPlayingState=false, isMuted=false, isFull=false, ctrlTimer=null;
 
-function showPlaceholder(msg, showRetry, externalUrl){
+function showPlaceholder(msg, showRetry){
   const p=document.getElementById('playerPlaceholder');
-  if (!showRetry){
-    p.innerHTML = `<div class="spinner"></div><span>${msg}</span>`;
-  } else {
-    const openBtn = externalUrl
-      ? `<button onclick="window.open('${externalUrl.replace(/'/g,"\\'")}','_blank')" style="margin-top:8px;padding:8px 18px;border-radius:8px;background:transparent;border:1px solid var(--border);color:#fff;font-weight:700;font-size:11px;">فتح الرابط في تطبيق/متصفح خارجي</button>`
-      : '';
-    p.innerHTML = `<span>${msg}</span><button onclick="retryCurrentSource()" style="margin-top:6px;padding:8px 18px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;">إعادة المحاولة</button>${openBtn}`;
-  }
+  p.innerHTML = showRetry
+    ? `<span>${msg}</span><button onclick="retryCurrentSource()" style="margin-top:6px;padding:8px 18px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;">إعادة المحاولة</button>`
+    : `<div class="spinner"></div><span>${msg}</span>`;
   p.classList.remove('hide');
 }
 let lastUrl = null;
@@ -833,7 +828,7 @@ function normalizeEmbedUrl(url){
   return { embed:false, url };
 }
 function loadSource(url, source){
-  lastUrl = url; // الرابط الأصلي كما هو دائمًا (تُستخدم لإعادة المحاولة وفتحه خارجيًا لاحقًا)
+  lastUrl = url; // الرابط الأصلي كما هو دائمًا (يُستخدم لإعادة المحاولة عند فشل التحميل)
   lastSource = source || null;
   state.currentSource = source || null;
   destroyPlayer();
@@ -910,13 +905,12 @@ function loadSource(url, source){
   loadWatchdog = setTimeout(()=>{
     const ph = document.getElementById('playerPlaceholder');
     if (lastUrl === url && !ph.classList.contains('hide') && ph.querySelector('.spinner')){
-      showPlaceholder('تعذر تشغيل هذا الرابط، أو أنه يستغرق وقتًا أطول من المعتاد', true, url);
+      showPlaceholder('تعذر تشغيل هذا الرابط، أو أنه يستغرق وقتًا أطول من المعتاد', true);
     }
   }, 15000);
 }
 function playHls(url, isTsWrap){
   const v = video();
-  const extUrl = isTsWrap ? null : url; // لا نعرض فتحًا خارجيًا لرابط blob مصغّر داخلي (isTsWrap)
   if (window.Hls && Hls.isSupported()){
     hlsInst = new Hls({ enableWorker:true });
     hlsInst.loadSource(url);
@@ -926,14 +920,14 @@ function playHls(url, isTsWrap){
       setupQualityMenu();
     });
     hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
-      if (data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط (قد يكون محجوبًا CORS من السيرفر نفسه)', true, extUrl);
+      if (data.fatal) showPlaceholder('تعذر تشغيل هذا الرابط (قد يكون محجوبًا CORS من السيرفر نفسه)', true);
     });
   } else if (!isTsWrap && v.canPlayType('application/vnd.apple.mpegurl')){
     v.src = url;
     v.addEventListener('loadedmetadata', ()=>{ hidePlaceholder(); v.play().catch(()=>{}); }, {once:true});
-    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true, extUrl), {once:true});
+    v.addEventListener('error', ()=>showPlaceholder('تعذر تشغيل هذا الرابط', true), {once:true});
   } else {
-    showPlaceholder('تعذر تشغيل هذا الرابط', true, extUrl);
+    showPlaceholder('تعذر تشغيل هذا الرابط', true);
   }
 }
 function playDash(url){
@@ -943,9 +937,9 @@ function playDash(url){
     dashInst.updateSettings({ streaming:{ text:{ defaultEnabled:false } } });
     dashInst.initialize(v, url, true);
     dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ hidePlaceholder(); });
-    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ showPlaceholder('تعذر تشغيل هذا الرابط', true, url); });
+    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ showPlaceholder('تعذر تشغيل هذا الرابط', true); });
   } else {
-    showPlaceholder('تعذر تشغيل هذا الرابط', true, url);
+    showPlaceholder('تعذر تشغيل هذا الرابط', true);
   }
 }
 // تشغيل تدفق MPEG-TS خام مستمر (شائع في بورتالات Xtream Codes) عبر mpegts.js + Media Source Extensions
@@ -999,7 +993,7 @@ function playNative(url, isFinalAttempt){
   const onOk = ()=>{ hidePlaceholder(); v.play().catch(()=>{}); v.removeEventListener('error', onErr); };
   const onErr = ()=>{
     v.removeEventListener('loadedmetadata', onOk);
-    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا الرابط', true, url); }
+    if (isFinalAttempt){ showPlaceholder('تعذر تشغيل هذا الرابط', true); }
     else { showEmbed(url); }
   };
   v.addEventListener('loadedmetadata', onOk, {once:true});
