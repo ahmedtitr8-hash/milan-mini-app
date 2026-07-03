@@ -960,8 +960,32 @@ function showEmbed(url){
 }
 
 // يبني ترتيب محاولات التشغيل المناسب حسب شكل الرابط، بحيث لو فشل محرك ننتقل تلقائيًا للتالي بلا توقف
-function buildEngineList(rawUrl, netUrl, bestGuess){
+function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   const list = [];
+  // hint = نوع مؤكّد من فحص محتوى الرابط فعليًا (بدل التخمين من الامتداد فقط) — نضعه أولاً بثقة
+  if (hint === 'hls'){
+    list.push({ fn:()=>tryHls(rawUrl) });
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    list.push({ fn:()=>tryNative(netUrl) });
+    return list;
+  }
+  if (hint === 'dash'){
+    list.push({ fn:()=>tryDash(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+    return list;
+  }
+  if (hint === 'mpegts'){
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    list.push({ fn:()=>tryHls(makeTsPlaylistBlob(netUrl), true) });
+    return list;
+  }
+  if (hint === 'file'){
+    list.push({ fn:()=>tryNative(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    return list;
+  }
+  // لا يوجد فحص حاسم (تعذر الفحص نفسه، مثلاً بسبب سرعة اتصال) — نرجع للتخمين من الامتداد كخطة احتياطية
   if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
@@ -981,7 +1005,6 @@ function buildEngineList(rawUrl, netUrl, bestGuess){
     list.push({ fn:()=>tryNative(netUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
   } else {
-    // بلا امتداد واضح: الشكل الأشيع لروابط بورتالات Xtream — نجرب كل المحركات المحتملة بالترتيب الأنسب
     if (isXtreamLiveUrl(rawUrl)){
       list.push({ fn:()=>tryMpegts(netUrl) });
       list.push({ fn:()=>tryHls(rawUrl) });
@@ -991,8 +1014,8 @@ function buildEngineList(rawUrl, netUrl, bestGuess){
       list.push({ fn:()=>tryNative(netUrl) });
       list.push({ fn:()=>tryMpegts(netUrl) });
     }
-    list.push({ fn:()=>tryEmbedFallback(netUrl) }); // ملاذ أخير: قد يكون أصلاً صفحة ويب وليس ملف فيديو
   }
+  list.push({ fn:()=>tryEmbedFallback(netUrl) }); // ملاذ أخير: قد يكون أصلاً صفحة ويب وليس ملف فيديو
   return list;
 }
 function engineTimeout(ms){
@@ -1012,31 +1035,78 @@ async function runEngineChain(originalUrl, engines){
   return lastUrl !== originalUrl;
 }
 
-// تشخيص حقيقي لسبب فشل كل المحاولات: نتحقق من استجابة الرابط فعليًا (عبر البروكسي إن احتاج) ونعرض
-// السبب الدقيق للمستخدم (رفض مصادقة، رابط غير موجود، مهلة شبكة...) بدل رسالة عامة لا تفيد في التشخيص
-async function preflightDiagnose(netUrl){
+// فحص حقيقي لمحتوى الرابط قبل أي محاولة تشغيل: نقرأ أول جزء صغير فقط من الرد الفعلي (بايتات قليلة، لا الملف
+// كاملاً، ولا ننتظر نهاية تدفق مباشر لا ينتهي) لنعرف فعليًا ما الذي يُعيده السيرفر، بدل تخمين النوع من
+// الامتداد فقط ثم اكتشاف الفشل بعد مهلة طويلة. هذا يحل مشكلة "صيغة غير مدعومة" الغامضة بشكل جذري.
+async function probeUrl(netUrl){
+  let timer;
   try{
     const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), 8000);
+    timer = setTimeout(()=>ctrl.abort(), 8000);
     const res = await fetch(netUrl, { signal: ctrl.signal, cache:'no-store' });
-    clearTimeout(t);
-    return { reached:true, status: res.status, ok: res.ok };
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    let bytes = new Uint8Array(0);
+    if (res.body && res.body.getReader){
+      const reader = res.body.getReader();
+      const chunks = []; let total = 0;
+      while (total < 4096){
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value); total += value.length;
+      }
+      try{ reader.cancel(); }catch(e){}
+      bytes = new Uint8Array(total);
+      let off = 0;
+      for (const c of chunks){ bytes.set(c, off); off += c.length; }
+    } else {
+      const buf = await res.arrayBuffer();
+      bytes = new Uint8Array(buf).slice(0, 4096);
+    }
+    clearTimeout(timer);
+    let printable = 0;
+    for (let i=0;i<bytes.length;i++){ const b=bytes[i]; if (b===9||b===10||b===13||(b>=32&&b<127)) printable++; }
+    const isBinary = bytes.length > 0 && (printable / bytes.length) < 0.85;
+    const isTsSignature = bytes.length >= 188 && bytes[0] === 0x47 && bytes[188] === 0x47; // بايت مزامنة MPEG-TS
+    const snippet = isBinary ? '' : new TextDecoder('utf-8', { fatal:false }).decode(bytes);
+    return { reached:true, status:res.status, ok:res.ok, contentType, snippet, isBinary, isTsSignature, byteLen:bytes.length };
   }catch(e){
+    clearTimeout(timer);
     return { reached:false, timedOut: e.name === 'AbortError' };
   }
 }
-function diagMessage(diag){
-  if (!diag.reached){
-    return diag.timedOut
+// يحوّل نتيجة الفحص إلى: (أ) نوع محرك مؤكد نبدأ به مباشرة، أو (ب) رسالة خطأ دقيقة تُعرض فورًا بلا أي محاولة تشغيل عبثية
+function classifyProbe(probe){
+  if (!probe.reached){
+    return { errorMsg: probe.timedOut
       ? 'تعذر تشغيل الرابط: السيرفر لا يستجيب (انتهت المهلة)'
-      : 'تعذر تشغيل الرابط: تعذر الوصول للسيرفر — تحقق من اتصال الإنترنت';
+      : 'تعذر تشغيل الرابط: تعذر الوصول للسيرفر — تحقق من اتصال الإنترنت' };
   }
-  if (diag.status === 401 || diag.status === 403) return `تعذر تشغيل الرابط: مرفوض من السيرفر (${diag.status}) — تحقق من صلاحية الاشتراك أو بيانات الدخول`;
-  if (diag.status === 404) return 'تعذر تشغيل الرابط: القناة أو الرابط غير موجود (404)';
-  if (diag.status === 511) return 'تعذر تشغيل الرابط: الشبكة الحالية تطلب تسجيل دخول أولاً (511) — تحقق من اتصال الواي فاي/بيانات الجوال';
-  if (diag.status >= 500) return `تعذر تشغيل الرابط: خطأ من السيرفر (${diag.status})`;
-  if (!diag.ok) return `تعذر تشغيل الرابط (كود الاستجابة ${diag.status})`;
-  return 'تعذر تشغيل هذا الرابط رغم استجابة السيرفر — قد تكون صيغته غير مدعومة في المشغل';
+  if (probe.status === 401 || probe.status === 403) return { errorMsg:`تعذر تشغيل الرابط: مرفوض من السيرفر (${probe.status}) — تحقق من صلاحية الاشتراك أو بيانات الدخول` };
+  if (probe.status === 404) return { errorMsg:'تعذر تشغيل الرابط: القناة أو الرابط غير موجود (404)' };
+  if (probe.status === 511) return { errorMsg:'تعذر تشغيل الرابط: الشبكة الحالية تطلب تسجيل دخول أولاً (511) — تحقق من اتصال الواي فاي/بيانات الجوال' };
+  if (probe.status >= 500) return { errorMsg:`تعذر تشغيل الرابط: خطأ من السيرفر (${probe.status})` };
+  if (!probe.ok) return { errorMsg:`تعذر تشغيل الرابط (كود الاستجابة ${probe.status})` };
+
+  if (!probe.isBinary){
+    const s = probe.snippet || '';
+    if (/^\s*#EXTM3U/i.test(s)) return { kind:'hls' };
+    if (/<MPD[\s>]/i.test(s)) return { kind:'dash' };
+    // رسائل خطأ شائعة من بورتالات Xtream Codes: JSON بحقل auth:0، أو نص صريح يشير لعدم الصلاحية
+    if (/"auth"\s*:\s*0/i.test(s) || /\b(invalid|expired|unauthoriz|forbidden|banned|not\s*found)\b/i.test(s)){
+      return { errorMsg:'تعذر تشغيل الرابط: السيرفر يرد برسالة تشير لعدم صلاحية الاشتراك أو بيانات الدخول (أو انتهاء صلاحيته)' };
+    }
+    if (/<html/i.test(s)){
+      return { errorMsg:'تعذر تشغيل الرابط: السيرفر أرجع صفحة ويب بدل تدفق فيديو — تحقق من صحة الرابط' };
+    }
+    return {}; // نص غير حاسم: لا نوع مؤكد ولا خطأ واضح — نترك المحركات تجرب بالترتيب الاحتياطي
+  }
+  if (probe.isTsSignature || probe.contentType.includes('mp2t') || probe.contentType.includes('mpegts')){
+    return { kind:'mpegts' };
+  }
+  if (probe.contentType.includes('video/') || probe.contentType.includes('application/octet-stream')){
+    return { kind:'file' };
+  }
+  return {}; // بيانات ثنائية دون توقيع معروف — نترك المحركات تجرب بالترتيب الاحتياطي
 }
 
 async function loadSource(url, source){
@@ -1073,11 +1143,20 @@ async function loadSource(url, source){
   bindVideoEvents();
   setupQualityMenu();
 
-  const engines = buildEngineList(rawUrl, netUrl, bestGuess);
+  // نفحص محتوى الرابط الحقيقي أولاً قبل أي محاولة تشغيل — هذا يحدد المحرك الصحيح بثقة أو يوقفنا فورًا
+  // برسالة دقيقة عند وجود خطأ واضح (بدل تجربة كل المحركات عبثًا ثم رسالة عامة لا تشرح شيئًا)
+  const probe = await probeUrl(netUrl);
+  if (lastUrl !== url) return; // المستخدم غيّر المصدر أثناء الفحص
+  const classified = classifyProbe(probe);
+  if (classified.errorMsg){
+    showPlaceholder(classified.errorMsg, true);
+    return;
+  }
+
+  const engines = buildEngineList(rawUrl, netUrl, bestGuess, classified.kind);
   const ok = await runEngineChain(url, engines);
   if (!ok && lastUrl === url){
-    const diag = await preflightDiagnose(netUrl);
-    if (lastUrl === url) showPlaceholder(diagMessage(diag), true);
+    showPlaceholder('تعذر تشغيل هذا الرابط رغم استجابة السيرفر — قد تكون صيغته غير مدعومة في المشغل', true);
   }
 }
 
