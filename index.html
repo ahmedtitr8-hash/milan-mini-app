@@ -178,16 +178,23 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 /* فول سكرين: نعتمد دائمًا على كلاس .fs + الاتجاه الفعلي الحالي للجهاز (media query) بدل الاعتماد
    على أي واجهة فول سكرين واحدة بعينها — لأن بعضها (مثل فول سكرين تيليجرام نفسه) يخفي الشريط العلوي
    فقط ولا يكبّر عنصر الفيديو تلقائيًا، فنحتاج نكبّره نحن بأنفسنا دائمًا بغض النظر عن الطريقة الناجحة */
-/* فول سكرين: نكبّر عنصر المشغل ليملأ كامل المساحة المتاحة فعليًا (100dvw × 100dvh) بلا أي "تدوير بصري
-   مزيّف" للمحاكاة — تلك الحيلة كانت تفترض أن الشاشة كاملة متاحة، لكن شريط تيليجرام العلوي الخاص به لا
-   يُخفى فعليًا في بعض إصدارات تطبيق تيليجرام (قيد من المنصة نفسها لا نتحكم فيه من كودنا)، فيقتطع من
-   المساحة الحقيقية ويُسبّب انزلاق الأزرار لزوايا غير قابلة للنقر بعد التدوير. الحل الأكثر أمانًا: نملأ
-   المساحة المتاحة كما هي بالفعل بدون افتراض توفر شاشة كاملة، فتبقى كل الأزرار دائمًا بمكانها الصحيح
-   وقابلة للنقر، حتى لو ظل الفيديو بنسبة عرض غير موسّعة بالكامل في حال بقاء شريط تيليجرام ظاهرًا. */
 body.fs-lock{overflow:hidden!important;}
 body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:none!important;}
-#playerWrap.fs{position:fixed!important;inset:0!important;width:100dvw!important;height:100dvh!important;
-  max-height:none!important;aspect-ratio:unset!important;transform:none!important;z-index:9999!important;background:#000!important;}
+/* فول سكرين: تدوير بصري بـ CSS بحت لعرض الفيديو أفقيًا داخل شاشة الجهاز العمودية (هذا لا يُدوّر الجهاز
+   فعليًا؛ فقط يعرض صندوق المشغل نفسه أفقيًا بصريًا)، مع ملاحظة أن الصندوق يدور كوحدة واحدة متكاملة بكل
+   ما فيه (الفيديو + كل الأزرار)، فتبقى مواقع الأزرار صحيحة ومتسقة نسبةً لبعضها بعد التدوير دون أي تفرّق */
+#playerWrap.fs{position:fixed!important;top:0;left:0;z-index:9999!important;background:#000!important;}
+@media (orientation:portrait){
+  #playerWrap.fs{
+    width:100dvh!important;height:100dvw!important;
+    max-height:none!important;aspect-ratio:unset!important;transform-origin:0 0;
+    transform:rotate(90deg) translateY(-100%)!important;
+  }
+}
+@media (orientation:landscape){
+  #playerWrap.fs{inset:0!important;width:100%!important;height:100%!important;
+    max-height:none!important;aspect-ratio:unset!important;transform:none!important;}
+}
 
 .below-player{padding:14px;}
 .tabs-row{display:flex;gap:10px;margin-bottom:14px;}
