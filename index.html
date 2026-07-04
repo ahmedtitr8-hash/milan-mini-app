@@ -1328,20 +1328,10 @@ function exitFS(){
   }
   if (video().webkitDisplayingFullscreen && video().webkitExitFullscreen){ try{ video().webkitExitFullscreen(); }catch(e){} }
 }
-['fullscreenchange','webkitfullscreenchange'].forEach(evt=>{
-  document.addEventListener(evt, ()=>{
-    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
-    if (!fsEl && isFull && !(video().webkitDisplayingFullscreen)){
-      exitFS();
-    }
-  });
-});
-if (window.Telegram && window.Telegram.WebApp && typeof Telegram.WebApp.onEvent === 'function'){
-  // إن أنهى المستخدم الفول سكرين من داخل تيليجرام نفسه (بدون زرّنا)، نُبقي حالة الواجهة متزامنة
-  Telegram.WebApp.onEvent('fullscreenChanged', ()=>{
-    if (!Telegram.WebApp.isFullscreen && isFull) exitFS();
-  });
-}
+// ملاحظة: أزلنا عمدًا أي مستمع يستمع لتغيّر حالة الفول سكرين "الأصلي" (document.fullscreenElement أو
+// Telegram.WebApp.isFullscreen) ليُبطل وضعنا الخاص (.fs) تلقائيًا — لأن الفول سكرين الأصلي أساسًا لا يتفعل
+// إطلاقًا داخل هذا الـ WebView (هيدر تيليجرام يبقى ظاهرًا دومًا كما لوحظ)، فكان هذا المستمع يُبطل ضغطة
+// الزر فور حدوثها بلا أي ظهور مرئي على الإطلاق. وضعنا (.fs) الآن مستقل تمامًا ويتحكم فيه زرّانا فقط.
 
 </script>
 </body>
