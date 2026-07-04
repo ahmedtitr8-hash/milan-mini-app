@@ -2,6 +2,23 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+// إجبار تحميل جديد فعليًا من الشبكة (مرة واحدة كل جلسة) بدل الاعتماد على أي نسخة مخزّنة مسبقًا محليًا،
+// عبر تحميل الصفحة برابط مختلف كل مرة (معامل ?v=) — هذا يكسر الكاش بغض النظر عن مصدره (متصفح أو WebView تيليجرام)
+(function(){
+  try{
+    if (!sessionStorage.getItem('_freshLoad')){
+      sessionStorage.setItem('_freshLoad','1');
+      var url = new URL(location.href);
+      url.searchParams.set('v', Date.now());
+      location.replace(url.toString());
+    }
+  }catch(e){}
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <title>ZONE</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
