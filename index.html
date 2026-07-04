@@ -362,7 +362,6 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
               <div class="right">
                 <button onclick="togglePlay()" id="btnBarPlay"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
                 <button onclick="toggleMute()" id="btnMute"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg></button>
-                <span class="live-flat hide" id="liveFlat"><span class="bdot"></span> مباشر</span>
                 <button onclick="event.stopPropagation();toggleServerMenu()" id="btnServers" class="hide" title="سيرفرات وقنوات أخرى">
                   <svg viewBox="0 0 24 24" id="btnServersIcon"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
                 </button>
@@ -696,7 +695,6 @@ function showUpcomingState(m){
   const v = video();
   v.poster = m.thumbnail_url || '';
   document.getElementById('liveBadgeP').style.display = 'none';
-  document.getElementById('liveFlat').classList.add('hide');
   document.getElementById('seekRow').style.display = 'none';
   document.getElementById('btnBack10').style.display = 'none';
   document.getElementById('btnFwd10').style.display = 'none';
@@ -862,10 +860,11 @@ async function detectDashType(url){
 function applyTypeUI(type){
   const isLive = type === 'live';
   document.getElementById('liveBadgeP').style.display = isLive ? 'flex':'none';
-  document.getElementById('liveFlat').classList.toggle('hide', !isLive);
   document.getElementById('seekRow').style.display = isLive ? 'none':'flex';
   document.getElementById('btnBack10').style.display = isLive ? 'none':'flex';
   document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnBarPlay').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnCenterPlay').style.display = isLive ? 'none':'flex';
 }
 function hidePlaceholder(){ document.getElementById('playerPlaceholder').classList.add('hide'); }
 let toastTimer = null;
@@ -1375,6 +1374,39 @@ function setServersButtonVisibility(){
   const list = currentTabSources();
   btn.classList.toggle('hide', list.length <= 1);
 }
+let serverMenuPage = 0;
+const SERVERS_PER_PAGE = 3;
+function renderServerMenuPage(){
+  const menu = document.getElementById('serverMenu');
+  const list = currentTabSources();
+  const activeUrl = lastUrl;
+  const start = serverMenuPage * SERVERS_PER_PAGE;
+  const pageItems = list.slice(start, start + SERVERS_PER_PAGE);
+  let html = pageItems.map((s,i)=>{
+    const realIdx = start + i;
+    return `<div data-srv="${realIdx}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;">${s.url===activeUrl?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
+  }).join('<div style="height:1px;background:var(--border)"></div>');
+  if (list.length > SERVERS_PER_PAGE){
+    // سهم صفحات (ضمن القائمة نفسها، ليس زرًا جديدًا) للتنقل لباقي القنوات لو كانت أكثر من 3
+    html += `<div style="height:1px;background:var(--border)"></div>
+      <div data-srv-next="1" style="padding:8px 14px;display:flex;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+      </div>`;
+  }
+  menu.innerHTML = html;
+  menu.querySelectorAll('[data-srv]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); pickSourceFromMenu(parseInt(el.dataset.srv,10)); };
+  });
+  const nextBtn = menu.querySelector('[data-srv-next]');
+  if (nextBtn){
+    nextBtn.onclick = (e)=>{
+      e.stopPropagation();
+      const totalPages = Math.ceil(list.length / SERVERS_PER_PAGE);
+      serverMenuPage = (serverMenuPage + 1) % totalPages;
+      renderServerMenuPage();
+    };
+  }
+}
 function toggleServerMenu(){
   document.getElementById('aspectMenu').classList.add('hide');
   document.getElementById('qualityMenu').classList.add('hide');
@@ -1382,15 +1414,8 @@ function toggleServerMenu(){
   const icon = document.getElementById('btnServersIcon');
   const willOpen = menu.classList.contains('hide');
   if (willOpen){
-    const list = currentTabSources();
-    const activeUrl = lastUrl;
-    menu.innerHTML = list.map((s,i)=>`<div data-srv="${i}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;">${s.url===activeUrl?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(i+1)))}</div>`).join('<div style="height:1px;background:var(--border)"></div>');
-    menu.querySelectorAll('[data-srv]').forEach(el=>{
-      el.onclick = (e)=>{
-        e.stopPropagation();
-        pickSourceFromMenu(parseInt(el.dataset.srv,10));
-      };
-    });
+    serverMenuPage = 0;
+    renderServerMenuPage();
   }
   menu.classList.toggle('hide');
   // نقلب اتجاه السهم: للأسفل وهي مفتوحة (ضغطة ثانية تقفلها)، للأعلى وهي مقفلة (ضغطة تفتحها)
