@@ -292,6 +292,20 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
     </div>
   </div>
 
+  <!-- شاشة "عرض الكل" لتصنيف معيّن -->
+  <div class="screen" id="screenCategory">
+    <div class="top-bar">
+      <button class="icon-btn" onclick="show('screenHome')">
+        <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      </button>
+      <div class="top-title" id="catTitle"></div>
+      <div class="top-zone">ZONE</div>
+    </div>
+    <div class="scroll-area">
+      <div class="fin-grid" id="catGrid"></div>
+    </div>
+  </div>
+
   <!-- شاشة المشغل -->
   <div class="screen" id="screenPlayer">
     <div class="top-bar">
@@ -530,18 +544,41 @@ function renderHome(){
     groups[cat].push(m);
   });
   order.sort((a,b)=>{
+    // نفرض ظهور تصنيف "مباشر" أولاً دائمًا، بغض النظر عن ترتيب category_order المحفوظ بقاعدة البيانات
+    const aLive = a.trim()==='مباشر' ? -1 : 0;
+    const bLive = b.trim()==='مباشر' ? -1 : 0;
+    if (aLive !== bLive) return aLive - bLive;
     const ga = groups[a][0].category_order||0, gb = groups[b][0].category_order||0;
     return ga-gb;
   });
+  state.catOrder = order;
+  state.catGroups = groups;
   if (!order.length){
     html += `<div class="empty-note">${q?'لا توجد نتائج مطابقة':'لا توجد مباريات مضافة حالياً لهذا النادي'}</div>`;
   }
-  order.forEach(cat=>{
-    html += `<div class="cat-block"><div class="cat-head"><div class="cat-title">${escapeHtml(cat)}</div><span class="see-all">عرض الكل</span></div>
+  order.forEach((cat,idx)=>{
+    html += `<div class="cat-block"><div class="cat-head"><div class="cat-title">${escapeHtml(cat)}</div><span class="see-all" onclick="openCategoryAll(${idx})">عرض الكل</span></div>
       <div class="cat-scroll">${groups[cat].map(matchCard).join('')}</div></div>`;
   });
 
   document.getElementById('homeContent').innerHTML = html;
+}
+// شاشة "عرض الكل" لتصنيف معيّن: تعرض كل مباريات هذا التصنيف بشكل شبكة كاملة بدل الصف الأفقي المحدود العرض
+function openCategoryAll(idx){
+  const cat = state.catOrder[idx];
+  const matches = state.catGroups[cat] || [];
+  document.getElementById('catTitle').textContent = cat;
+  document.getElementById('catGrid').innerHTML = matches.length
+    ? matches.map(m=>`
+      <div class="fin-item" onclick="openPlayer('${m.id}')">
+        <div class="thumb">${m.thumbnail_url?`<img src="${m.thumbnail_url}" alt="">`:''}<div class="card-grad"></div>
+          ${m.status==='live'?'<div class="mini-tag"><span class="bdot"></span> مباشر</div>':(m.status==='upcoming'?`<div class="mini-tag upn">${fmtKickoff(m.kickoff_at)}</div>`:'')}
+          <div class="play-dot"><div class="circ"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+          ${matchTitle(m)?`<div class="card-title">${escapeHtml(matchTitle(m))}</div>`:''}
+        </div>
+      </div>`).join('')
+    : `<div class="empty-note">لا توجد مباريات في هذا التصنيف</div>`;
+  show('screenCategory');
 }
 function toggleSearch(){
   const box = document.getElementById('searchBox');
