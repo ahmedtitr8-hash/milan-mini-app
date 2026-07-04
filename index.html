@@ -159,7 +159,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .ctrl-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:46px;}
 /* في الفول سكرين، الصندوق كبير جدًا (يقارب الشاشة كاملة)، فتوسيط هذي المجموعة بمنتصفه بالكامل يجعلها
    بعيدة جدًا عن صف الأزرار السفلي. نثبّتها قريبة منه مباشرة بدل ذلك، فتصير كل الأزرار بمنطقة واحدة متقاربة */
-#playerWrap.fs .ctrl-center{inset:auto!important;left:0;right:0;top:auto;bottom:130px;}
+#playerWrap.fs .ctrl-center{inset:auto!important;left:0;right:0;top:auto;bottom:130px;transform:translateX(115px);}
 .ctrl-center button{width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;}
 .ctrl-center button svg{width:26px;height:26px;fill:#fff;}
 .ctrl-center .big{width:64px;height:64px;background:rgba(0,0,0,.5);}
@@ -168,7 +168,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
   background:linear-gradient(to top,rgba(0,0,0,.9),transparent);display:flex;flex-direction:column;gap:6px;}
 /* مساحة أمان إضافية أسفل الأزرار في وضع الفول سكرين تحديدًا، تفاديًا لتراكب أي واجهة ثابتة للمنصة
    المستضيفة (تيليجرام أو غيره) عند حافة الشاشة السفلية مباشرة — بدون نقل الشريط عن موضعه الطبيعي بالأسفل */
-#playerWrap.fs .ctrl-bottom{padding-bottom:56px;}
+#playerWrap.fs .ctrl-bottom{padding-bottom:56px;transform:translateX(115px);}
 .seek-row{display:flex;align-items:center;gap:8px;}
 .seek-row input[type=range]{flex:1;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.25);border-radius:3px;}
 .seek-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--acc);}
