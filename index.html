@@ -376,8 +376,11 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
                 <button onclick="toggleFS()" id="btnFS"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
               </div>
             </div>
-            <div id="serverMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
-              border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:190px;max-height:220px;overflow-y:auto;" onclick="event.stopPropagation()"></div>
+            <div id="serverMenu" class="hide" style="position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.6);
+              display:flex;align-items:center;justify-content:center;" onclick="toggleServerMenu()">
+              <div id="serverMenuPanel" style="background:rgba(22,22,22,.98);border:1px solid var(--border);border-radius:14px;
+                padding:14px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:88%;max-height:70%;overflow-y:auto;" onclick="event.stopPropagation()"></div>
+            </div>
             <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;" onclick="event.stopPropagation()">
               <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
@@ -1375,29 +1378,30 @@ function setServersButtonVisibility(){
   btn.classList.toggle('hide', list.length <= 1);
 }
 let serverMenuPage = 0;
-const SERVERS_PER_PAGE = 3;
+const SERVERS_PER_PAGE = 9;
 function renderServerMenuPage(){
-  const menu = document.getElementById('serverMenu');
+  const panel = document.getElementById('serverMenuPanel');
   const list = currentTabSources();
   const activeUrl = lastUrl;
   const start = serverMenuPage * SERVERS_PER_PAGE;
   const pageItems = list.slice(start, start + SERVERS_PER_PAGE);
+  const chipStyle = 'padding:10px 16px;border-radius:20px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;background:rgba(255,255,255,.08);border:1px solid var(--border);cursor:pointer;';
   let html = pageItems.map((s,i)=>{
     const realIdx = start + i;
-    return `<div data-srv="${realIdx}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;">${s.url===activeUrl?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
-  }).join('<div style="height:1px;background:var(--border)"></div>');
+    const active = s.url===activeUrl;
+    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);border-color:var(--acc);':''}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
+  }).join('');
   if (list.length > SERVERS_PER_PAGE){
-    // سهم صفحات (ضمن القائمة نفسها، ليس زرًا جديدًا) للتنقل لباقي القنوات لو كانت أكثر من 3
-    html += `<div style="height:1px;background:var(--border)"></div>
-      <div data-srv-next="1" style="padding:8px 14px;display:flex;justify-content:center;">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
-      </div>`;
+    // سهم صفحات (ضمن اللوحة نفسها) للتنقل لباقي القنوات لو كانت أكثر من صفحة واحدة
+    html += `<div data-srv-next="1" style="${chipStyle}display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+    </div>`;
   }
-  menu.innerHTML = html;
-  menu.querySelectorAll('[data-srv]').forEach(el=>{
+  panel.innerHTML = html;
+  panel.querySelectorAll('[data-srv]').forEach(el=>{
     el.onclick = (e)=>{ e.stopPropagation(); pickSourceFromMenu(parseInt(el.dataset.srv,10)); };
   });
-  const nextBtn = menu.querySelector('[data-srv-next]');
+  const nextBtn = panel.querySelector('[data-srv-next]');
   if (nextBtn){
     nextBtn.onclick = (e)=>{
       e.stopPropagation();
