@@ -163,6 +163,10 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 @keyframes spin{to{transform:rotate(360deg)}}
 #liveBadgeP{position:absolute;top:10px;right:10px;z-index:6;background:var(--live);color:#fff;font-size:10px;font-weight:800;
   padding:4px 10px;border-radius:6px;display:none;align-items:center;gap:5px;}
+#playerToast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:15;background:rgba(20,20,20,.94);
+  color:#fff;font-size:12px;padding:9px 16px;border-radius:20px;max-width:88%;text-align:center;
+  border:1px solid rgba(255,255,255,.1);transition:opacity .25s;}
+#playerToast.hide{opacity:0;pointer-events:none;}
 /* في وضع الفول سكرين نخفي شارة "مباشر" الحمراء أعلى اليمين، وتبقى ظاهرة فقط في الوضع العادي */
 #playerWrap.fs #liveBadgeP{display:none!important;}
 /* زر إغلاق الفول سكرين: ثابت أعلى اليمين دائمًا (بمعزل عن ظهور/اختفاء بقية الأزرار)، ليسهل الوصول إليه فورًا */
@@ -335,6 +339,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
     <div class="player-scroll">
       <div id="playerWrap" onclick="onPlayerTap(event)">
         <div id="playerPlaceholder"><div class="spinner"></div><span>جارِ تحميل البث…</span></div>
+        <div id="playerToast" class="hide"></div>
         <video id="mainVideo" playsinline webkit-playsinline></video>
         <div id="liveBadgeP"><span class="bdot"></span> مباشر</div>
         <div class="ctrl-layer" id="ctrlLayer">
@@ -857,6 +862,15 @@ function applyTypeUI(type){
   document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
 }
 function hidePlaceholder(){ document.getElementById('playerPlaceholder').classList.add('hide'); }
+let toastTimer = null;
+function showToastMsg(msg, ms){
+  const t = document.getElementById('playerToast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove('hide');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.add('hide'), ms || 3200);
+}
 function resetPlayerUI(){
   destroyPlayer();
   showPlaceholder('جارِ تحميل البث…');
@@ -921,7 +935,7 @@ function tryHls(url, isBlobWrap){
       const loaderCfg = {};
       const CustomLoader = makeProxyLoader();
       if (CustomLoader) loaderCfg.loader = CustomLoader;
-      let settled = false;
+      let settled = false, mediaErrorRetries = 0;
       hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
       hlsInst.loadSource(url);
       hlsInst.attachMedia(v);
@@ -931,9 +945,31 @@ function tryHls(url, isBlobWrap){
         resolve();
       });
       hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
-        if (data.fatal && !settled){
-          settled = true;
-          reject(new Error('hls-fatal:'+(data.response?data.response.code:(data.details||''))));
+        if (!settled){
+          if (data.fatal){
+            settled = true;
+            reject(new Error('hls-fatal:'+(data.response?data.response.code:(data.details||''))));
+          }
+          return;
+        }
+        // بعد بدء التشغيل بنجاح: خطأ ترميز/تشغيل هنا يعني غالبًا أن الجهاز لا يدعم فك ترميز الجودة العالية
+        // الحالية (شائع جدًا مع بث HEVC أو بترميز عالي على أجهزة أندرويد أقدم). بدل ترك الشاشة سوداء بلا
+        // أي تفسير، نحاول الاسترجاع التلقائي، وإن تكرر الفشل ننزل تلقائيًا لأقل جودة متاحة (أكثر توافقًا)
+        if (data.fatal && data.type === Hls.ErrorTypes.MEDIA_ERROR){
+          mediaErrorRetries++;
+          if (mediaErrorRetries <= 2){
+            try{ hlsInst.recoverMediaError(); }catch(e){}
+          } else if (hlsInst.levels && hlsInst.levels.length > 1){
+            const lowest = hlsInst.levels.length - 1; // hls.js يرتب المستويات من الأعلى للأقل عادة عكسيًا حسب الإعداد؛ نأخذ الأدنى فعليًا حسب bitrate
+            let lowestIdx = 0, lowestBitrate = Infinity;
+            hlsInst.levels.forEach((lvl,idx)=>{ if (lvl.bitrate < lowestBitrate){ lowestBitrate = lvl.bitrate; lowestIdx = idx; } });
+            hlsInst.currentLevel = lowestIdx;
+            showToastMsg('الجودة العالية غير مدعومة على هذا الجهاز، تم التحويل لجودة أقل تلقائيًا');
+            try{ hlsInst.recoverMediaError(); }catch(e){}
+            mediaErrorRetries = 0;
+          }
+        } else if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR){
+          try{ hlsInst.startLoad(); }catch(e){}
         }
       });
     } else if (!isBlobWrap && v.canPlayType('application/vnd.apple.mpegurl')){
