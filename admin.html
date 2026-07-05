@@ -150,6 +150,21 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
       <button class="btn secondary small" onclick="saveClubLogo()">حفظ</button>
     </div>
 
+    <div class="club-logo-box">
+      <p style="color:var(--mute);font-size:11.5px;margin:0 0 8px;">هذي إعدادات عامة لكل التطبيق (تظهر بشاشة اختيار النادي)، وليست خاصة بنادٍ معيّن.</p>
+      <div class="row2">
+        <div class="field"><label>رابط قناة تيليجرام الأولى</label><input id="f_tg_link1" placeholder="https://t.me/..."></div>
+        <div class="field"><label>اسم القناة الأولى (يظهر على الزر)</label><input id="f_tg_label1" placeholder="القناة الأولى"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>رابط قناة تيليجرام الثانية</label><input id="f_tg_link2" placeholder="https://t.me/..."></div>
+        <div class="field"><label>اسم القناة الثانية (يظهر على الزر)</label><input id="f_tg_label2" placeholder="القناة الثانية"></div>
+      </div>
+      <div class="field"><label>سطر الحقوق (يظهر أسفل شاشة اختيار النادي)</label><input id="f_rights_text" placeholder="© 2026 BarMi ZONE — جميع الحقوق محفوظة"></div>
+      <p style="color:var(--mute);font-size:11px;margin:4px 0 8px;">اترك رابط أي قناة فاضي لو ما تبي زرها يظهر بالتطبيق.</p>
+      <button class="btn secondary small" onclick="saveAppSettings()">حفظ الإعدادات العامة</button>
+    </div>
+
     <div class="stats-row" id="statsRow"></div>
     <div class="filter-row" id="filterRow">
       <div class="filter-chip active" data-f="all" onclick="setFilter('all')">الكل</div>
@@ -319,12 +334,34 @@ function enterClub(club){
   document.getElementById('topCrest').textContent = club==='milan' ? 'M':'B';
   document.getElementById('topTitle').textContent = CLUB_NAMES[club];
   loadClubLogo();
+  loadAppSettings();
   loadMatches();
 }
 async function loadClubLogo(){
   const { data } = await sb.from('club_settings').select('logo_url').eq('club', currentClub).single();
   document.getElementById('clubLogoInput').value = (data && data.logo_url) || '';
   document.getElementById('clubLogoPreview').src = (data && data.logo_url) || '';
+}
+async function loadAppSettings(){
+  const { data } = await sb.from('app_settings').select('*').eq('id', 1).single();
+  document.getElementById('f_tg_link1').value = (data && data.telegram_link_1) || '';
+  document.getElementById('f_tg_label1').value = (data && data.telegram_label_1) || '';
+  document.getElementById('f_tg_link2').value = (data && data.telegram_link_2) || '';
+  document.getElementById('f_tg_label2').value = (data && data.telegram_label_2) || '';
+  document.getElementById('f_rights_text').value = (data && data.rights_text) || '';
+}
+async function saveAppSettings(){
+  const payload = {
+    id: 1,
+    telegram_link_1: document.getElementById('f_tg_link1').value.trim(),
+    telegram_label_1: document.getElementById('f_tg_label1').value.trim() || 'القناة الأولى',
+    telegram_link_2: document.getElementById('f_tg_link2').value.trim(),
+    telegram_label_2: document.getElementById('f_tg_label2').value.trim() || 'القناة الثانية',
+    rights_text: document.getElementById('f_rights_text').value.trim(),
+  };
+  const { error } = await sb.from('app_settings').upsert(payload);
+  if (error){ toast('تعذر الحفظ: '+error.message, true); return; }
+  toast('تم حفظ الإعدادات العامة');
 }
 async function saveClubLogo(){
   const url = document.getElementById('clubLogoInput').value.trim();
