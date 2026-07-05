@@ -436,6 +436,11 @@ try{
   if (window.Telegram && window.Telegram.WebApp){
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+    // نطلب فول سكرين تيليجرام على مستوى التطبيق كامل من البداية (لا فقط أثناء تشغيل الفيديو)،
+    // لعل هذا يعطي شكل الشريط المبسّط نفسه اللي يظهر أثناء تشغيل الفيديو، على كل صفحات التطبيق
+    if (typeof Telegram.WebApp.requestFullscreen === 'function'){
+      try{ Telegram.WebApp.requestFullscreen(); }catch(e){}
+    }
   }
 }catch(e){}
 const IS_TG = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
@@ -733,8 +738,10 @@ function loadTabSources(){
   }
   renderBelowPlayer();
 }
+let countdownTimer = null;
 function showUpcomingState(m){
   destroyPlayer();
+  clearInterval(countdownTimer);
   const v = video();
   v.poster = m.thumbnail_url || '';
   document.getElementById('liveBadgeP').style.display = 'none';
@@ -748,8 +755,25 @@ function showUpcomingState(m){
     <svg viewBox="0 0 24 24" style="width:34px;height:34px;fill:var(--acc)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h-2V7h2zm0 4h-2v-2h2z"/></svg>
     <span style="font-weight:800;color:#fff;">المباراة لم تبدأ بعد</span>
     <span style="font-size:12px;">موعد الانطلاق: ${fmtKickoff(m.kickoff_at) || 'قريبًا'}</span>
+    <span id="kickoffCountdown" style="font-size:18px;font-weight:900;color:var(--acc);margin-top:4px;letter-spacing:.5px;"></span>
     ${note ? `<span style="font-size:12.5px;color:#ddd;max-width:280px;text-align:center;line-height:1.5;margin-top:2px;">${escapeHtml(note)}</span>` : ''}`;
   p.classList.remove('hide');
+  const target = m.kickoff_at ? new Date(m.kickoff_at).getTime() : null;
+  const el = document.getElementById('kickoffCountdown');
+  function tick(){
+    if (!target || !el) { clearInterval(countdownTimer); return; }
+    const diff = target - Date.now();
+    if (diff <= 0){ el.textContent = 'على وشك الانطلاق'; clearInterval(countdownTimer); return; }
+    const d = Math.floor(diff/86400000);
+    const h = Math.floor((diff%86400000)/3600000);
+    const mi = Math.floor((diff%3600000)/60000);
+    const s = Math.floor((diff%60000)/1000);
+    el.textContent = d>0
+      ? `يبدأ بعد ${d} يوم ${h} س ${mi} د`
+      : `يبدأ بعد ${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  tick();
+  countdownTimer = setInterval(tick, 1000);
 }
 function renderBelowPlayer(){
   const m = state.currentMatch;
@@ -845,7 +869,13 @@ function isXtreamLiveUrl(url){
 // هذه الدالة تُستخدم لكل طلب على حدة (وليس مرة واحدة فقط لرابط البداية) حتى تعمل الروابط الفرعية
 // المتداخلة داخل قوائم التشغيل (master m3u8 → sub-playlist → مقاطع .ts) بلا استثناء ولا علاقة بامتدادها.
 function proxied(u){
-  return (location.protocol === 'https:' && /^http:\/\//i.test(u)) ? `${STREAM_PROXY}?url=${encodeURIComponent(u)}` : u;
+  // حارس: لو الرابط ممرَّر بالبروكسي مسبقًا (يحصل مع الروابط الفرعية المتداخلة داخل قوائم m3u8 التي
+  // يعيد بروكسينا كتابتها بنفسه ليجعلها مطلقة ومارّة بالبروكسي)، لا نعيد تغليفه بطبقة بروكسي إضافية عبثًا
+  if (u.startsWith(STREAM_PROXY)) return u;
+  // نمرّر كل الروابط عبر البروكسي دومًا (لا فقط http) — كثير من روابط m3u8 الحقيقية https لكنها بلا ترويسات
+  // CORS، فيرفض المتصفح قراءة ردها مباشرة رغم إنها https. بروكسينا يضيف ترويسات CORS مسموحة دومًا من طرفه،
+  // فتوجيه كل شيء عبره يضمن عدم انكسار أي رابط بسبب CORS بغض النظر عن نوع بروتوكوله
+  return `${STREAM_PROXY}?url=${encodeURIComponent(u)}`;
 }
 // لودر مخصص لمكتبة hls.js: يُمرَّر إليه الرابط الأصلي (http أو https) كمصدر، فتقوم المكتبة نفسها بحساب
 // روابط القوائم الفرعية والمقاطع بشكل صحيح استنادًا لعنوان الرابط الأصلي (وليس رابط البروكسي)، ثم عند
@@ -928,6 +958,7 @@ function resetPlayerUI(){
 
 function destroyPlayer(){
   clearTimeout(loadWatchdog);
+  clearInterval(countdownTimer);
   stopEngines();
   const existingIframe = document.getElementById('embedFrame');
   if (existingIframe) existingIframe.remove();
@@ -1431,17 +1462,20 @@ function renderServerMenuPage(){
     const activeItem = pageItems.splice(activePos, 1)[0];
     pageItems.splice(Math.floor(pageItems.length / 2), 0, activeItem);
   }
-  const chipStyle = 'padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;';
+  const chipStyle = 'height:60px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;cursor:pointer;';
+  const textStyle = 'display:inline-block;transform:rotate(-90deg);white-space:nowrap;';
   let html = pageItems.map(({s, realIdx})=>{
     const active = s.url===activeUrl;
-    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);':''}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
+    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);':''}"><span style="${textStyle}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</span></div>`;
   }).join('<div style="height:1px;background:var(--border)"></div>');
   if (list.length > SERVERS_PER_PAGE){
     // سهم صفحات (ضمن اللوحة نفسها) للتنقل لباقي القنوات لو كانت أكثر من صفحة واحدة
     html += `<div style="height:1px;background:var(--border)"></div>
-      <div data-srv-next="1" style="${chipStyle}display:flex;align-items:center;justify-content:center;">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
-    </div>`;
+      <div data-srv-next="1" style="${chipStyle}">
+        <span style="${textStyle}display:flex;align-items:center;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+        </span>
+      </div>`;
   }
   panel.innerHTML = html;
   panel.querySelectorAll('[data-srv]').forEach(el=>{
@@ -1525,10 +1559,10 @@ function toggleFS(){
 function exitFS(){
   isFull = false;
   const w = document.getElementById('playerWrap');
-  const tg = window.Telegram && window.Telegram.WebApp;
   w.classList.remove('fs');
   document.body.classList.remove('fs-lock');
-  if (tg && typeof tg.exitFullscreen === 'function'){ try{ tg.exitFullscreen(); }catch(e){} }
+  // ملاحظة: لا نستدعي tg.exitFullscreen() هنا عمدًا — فول سكرين تيليجرام مطلوب على مستوى التطبيق كامل
+  // من بداية التحميل (راجع تهيئة Telegram Mini App)، ونريده يستمر بكل الصفحات لا يتعلق بفول سكرين الفيديو فقط
   const exitter = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
   if ((document.fullscreenElement || document.webkitFullscreenElement) && exitter){
     try{ exitter.call(document); }catch(e){}
@@ -1543,4 +1577,3 @@ function exitFS(){
 </script>
 </body>
 </html>
-
