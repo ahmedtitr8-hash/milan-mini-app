@@ -127,8 +127,7 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     <div class="field" style="text-align:right"><input type="password" id="gateInput" placeholder="كلمة المرور"></div>
     <button class="btn" style="width:100%" onclick="checkGate()">دخول</button>
     <p id="gateMsg" style="color:var(--danger);font-size:12px;margin-top:10px;"></p>
-    <p style="color:var(--mute);font-size:11px;margin-top:14px;">تسجيل دخول حقيقي عبر Supabase Auth. يجب إنشاء المستخدم أولاً من لوحة Supabase (Authentication → Users → Add user) — راجع README.</p>
-  </div>
+      </div>
 </div>
 
 <!-- اختيار النادي -->
@@ -143,18 +142,16 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
   <div class="modal">
     <span class="close-x" onclick="closeGlobalSettings()">✕</span>
     <h3>⚙️ الإعدادات العامة للتطبيق</h3>
-    <p style="color:var(--mute);font-size:12px;margin:0 0 18px;">هذي إعدادات لكل التطبيق (تظهر بشاشة اختيار النادي)، وليست خاصة بنادٍ معيّن.</p>
-    <div class="row2">
+        <div class="row2">
       <div class="field"><label>رابط قناة تيليجرام الأولى</label><input id="f_tg_link1" placeholder="https://t.me/..."></div>
-      <div class="field"><label>اسم القناة الأولى (يظهر على الزر)</label><input id="f_tg_label1" placeholder="القناة الأولى"></div>
+      <div class="field"><label>اسم القناة الأولى</label><input id="f_tg_label1" placeholder="القناة الأولى"></div>
     </div>
     <div class="row2">
       <div class="field"><label>رابط قناة تيليجرام الثانية</label><input id="f_tg_link2" placeholder="https://t.me/..."></div>
-      <div class="field"><label>اسم القناة الثانية (يظهر على الزر)</label><input id="f_tg_label2" placeholder="القناة الثانية"></div>
+      <div class="field"><label>اسم القناة الثانية</label><input id="f_tg_label2" placeholder="القناة الثانية"></div>
     </div>
-    <div class="field"><label>سطر الحقوق (يظهر أسفل شاشة اختيار النادي)</label><input id="f_rights_text" placeholder="© 2026 BarMi ZONE — جميع الحقوق محفوظة"></div>
-    <p style="color:var(--mute);font-size:11px;margin:4px 0 16px;">اترك رابط أي قناة فاضي لو ما تبي زرها يظهر بالتطبيق.</p>
-    <button class="btn" style="width:100%" onclick="saveAppSettings()">حفظ الإعدادات العامة</button>
+    <div class="field"><label>سطر الحقوق</label><input id="f_rights_text" placeholder="© 2026 BarMi ZONE — جميع الحقوق محفوظة"></div>
+        <button class="btn" style="width:100%" onclick="saveAppSettings()">حفظ الإعدادات العامة</button>
   </div>
 </div>
 
@@ -164,12 +161,13 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     <div class="crest" id="topCrest">M</div>
     <h2 id="topTitle">ميلان</h2>
     <button class="btn secondary" onclick="switchClub()">تبديل النادي</button>
+    <button class="btn secondary" onclick="openGlobalSettings()">⚙️ الإعدادات العامة</button>
     <button class="btn secondary" onclick="doLogout()">تسجيل خروج</button>
   </div>
   <div class="wrap">
     <div class="club-logo-box">
       <img id="clubLogoPreview" src="" onerror="this.style.opacity=0">
-      <div class="field"><label>شعار النادي (رابط صورة تظهر بأعلى الميني تطبيق)</label><input id="clubLogoInput" placeholder="https://..."></div>
+      <div class="field"><label>شعار النادي</label><input id="clubLogoInput" placeholder="https://..."></div>
       <button class="btn secondary small" onclick="saveClubLogo()">حفظ</button>
     </div>
 
@@ -181,9 +179,8 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
       <div class="filter-chip" data-f="finished" onclick="setFilter('finished')">منتهية</div>
     </div>
 
-    <button class="btn" onclick="openMatchModal(null)">+ إضافة محتوى جديد (مباراة / قناة / فيديو)</button>
-    <p style="color:var(--mute);font-size:11.5px;margin:8px 0 0;">💡 نفس النموذج يصلح لأي نوع محتوى: مباراة (بفريقين)، أو قناة/فيديو عام (بدون فريقين) — استخدم حقل "الفئة" لتنظيمها بصفوف منفصلة بالرئيسية.</p>
-    <div class="section-title">المباريات</div>
+    <button class="btn" onclick="openMatchModal(null)">+ إضافة محتوى</button>
+        <div class="section-title">المباريات</div>
     <div class="mlist" id="mlist"><p style="color:var(--mute)">جارِ التحميل…</p></div>
   </div>
 </div>
@@ -195,26 +192,25 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     <h3 id="modalTitle">إضافة مباراة</h3>
 
     <div class="field">
-      <label>عنوان المباراة (يظهر كنص فوق الصورة داخل التطبيق — لا تكتب الاسم داخل الصورة نفسها)</label>
+      <label>عنوان المباراة</label>
       <input id="f_title" placeholder="مثال: ميلان × إنتر - الديربي">
     </div>
 
-    <div class="form-section"><h4>الفريقان (اختياري)</h4>
-      <p style="color:var(--mute);font-size:11.5px;margin-bottom:10px;">اتركهما فاضيين لو المحتوى ليس مباراة (مثل: قناة مباشرة، فيديو عام، خبر) — التطبيق تلقائيًا لا يعرض "VS" في هذي الحالة.</p>
+    <div class="form-section"><h4>الفريقان</h4>
       <div class="row2">
-        <div class="field"><label>الفريق المستضيف (اسم)</label><input id="f_home_team"></div>
-        <div class="field"><label>الفريق الضيف (اسم)</label><input id="f_away_team"></div>
+        <div class="field"><label>الفريق المستضيف</label><input id="f_home_team"></div>
+        <div class="field"><label>الفريق الضيف</label><input id="f_away_team"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>شعار الفريق المستضيف (رابط صورة)</label><input id="f_home_logo"></div>
-        <div class="field"><label>شعار الفريق الضيف (رابط صورة)</label><input id="f_away_logo"></div>
+        <div class="field"><label>شعار الفريق المستضيف</label><input id="f_home_logo"></div>
+        <div class="field"><label>شعار الفريق الضيف</label><input id="f_away_logo"></div>
       </div>
     </div>
 
     <div class="form-section"><h4>البطولة والتوقيت</h4>
       <div class="row2">
         <div class="field"><label>البطولة</label><input id="f_competition" placeholder="الدوري الإيطالي..."></div>
-        <div class="field"><label>الجولة (تظهر في قائمة السابقة)</label><input id="f_round" placeholder="مثال: 24"></div>
+        <div class="field"><label>الجولة</label><input id="f_round" placeholder="مثال: 24"></div>
       </div>
       <div class="row3">
         <div class="field"><label>الحالة</label>
@@ -236,13 +232,13 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
 
     <div class="form-section"><h4>الصورة والفئة</h4>
       <div class="field">
-        <label>صورة المباراة (رابط صورة عادية — العنوان يظهر تلقائيًا فوقها من الحقل أعلاه)</label>
+        <label>صورة المباراة</label>
         <input id="f_thumb" placeholder="https://..." oninput="updateThumbPreview()">
         <div class="thumb-preview" id="thumbPreview">لا توجد صورة بعد</div>
       </div>
       <div class="row2">
-        <div class="field"><label>الفئة (اسم حر بالكامل — اكتب أي اسم تبغاه: "قنوات"، "أخبار"، "أبرز المباريات"... كل اسم يصير صف مستقل تلقائيًا بالرئيسية، اتركها فارغة لإخفاء المحتوى من الرئيسية)</label><input id="f_category" placeholder="أبرز المباريات / قنوات / ملخصات..."></div>
-        <div class="field"><label>ترتيب الفئة (رقم أصغر = أول)</label><input type="number" id="f_catorder" value="0"></div>
+        <div class="field"><label>الفئة</label><input id="f_category" placeholder="أبرز المباريات / قنوات / ملخصات..."></div>
+        <div class="field"><label>ترتيب الفئة</label><input type="number" id="f_catorder" value="0"></div>
       </div>
       <div class="row2">
         <div class="field"><label>ترتيب داخل القائمة</label><input type="number" id="f_sort" value="0"></div>
@@ -253,15 +249,13 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     </div>
 
     <div class="form-section" id="upcomingSection">
-      <h4>معلومات المباراة القادمة (اختياري)</h4>
-      <p style="color:var(--mute);font-size:11.5px;margin-bottom:10px;">تظهر هذه المعلومات في صفحة المباراة قبل انطلاقها بدلاً من إجبارك على إضافة رابط مشغل — مثال: القناة الناقلة، الملعب، أو أي ملاحظة تريد عرضها للمستخدم. لا حاجة لإضافة أي سيرفر إذا كانت المباراة بعد وقت طويل.</p>
+      <h4>معلومات المباراة القادمة</h4>
       <div class="field"><label>نص يظهر للمستخدم</label><textarea id="f_upcoming_note" rows="3" placeholder="مثال: تُعرض المباراة حصريًا على قناة SSC 1 يوم الجمعة"></textarea></div>
     </div>
 
     <div class="form-section" id="sourcesSection">
       <h4 id="sourcesTitle">السيرفرات</h4>
-      <p style="color:var(--mute);font-size:11.5px;margin-bottom:10px;">إضافة سيرفر هنا اختيارية دائمًا لأي حالة — لست مضطرًا لإضافة رابط مشغل لمباراة قادمة، أضفه فقط عندما يتوفر لديك.</p>
-      <div class="sub-list" id="sourcesList"></div>
+            <div class="sub-list" id="sourcesList"></div>
       <button class="btn secondary small" onclick="addSourceRow()">+ إضافة سيرفر</button>
     </div>
 
@@ -549,7 +543,7 @@ function renderSourceRows(){
       </div>
       <div class="qual-box">
         <div class="qual-head">
-          <span>جودات إضافية لهذا السيرفر (اختياري)</span>
+          <span>جودات إضافية</span>
           <button type="button" class="btn secondary tiny" onclick="addQualityRow(${i})">+ إضافة جودة</button>
         </div>
         <div class="qual-list">
