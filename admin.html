@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ZONE — لوحة التحكم</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{ --acc:#E87B00; --bg:#0b0b0b; --card:#151515; --card2:#1d1d1d; --border:#282828; --txt:#EEE; --mute:#8a8a8a; --danger:#D32F2F; --ok:#2E7D32; }
+body[data-club="milan"]{ --acc:#E2101A; }
+body[data-club="barca"]{ --acc:#A50044; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:'Cairo',sans-serif;min-height:100vh;}
+button{font-family:inherit;cursor:pointer;border:none;}
+input,select,textarea{font-family:inherit;background:var(--card2);border:1px solid var(--border);color:var(--txt);
+  border-radius:8px;padding:9px 10px;font-size:13px;width:100%;}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--acc);}
+.hide{display:none!important;}
+label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
+.field{margin-bottom:12px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.btn{padding:10px 18px;border-radius:9px;font-weight:800;font-size:13px;color:#fff;background:var(--acc);}
+.btn.secondary{background:var(--card2);color:var(--txt);border:1px solid var(--border);}
+.btn.danger{background:var(--danger);}
+.btn.small{padding:6px 12px;font-size:12px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;}
+
+/* ===== شاشة الدخول ===== */
+#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#181818,#070707);}
+#gate .box{width:280px;text-align:center;}
+#gate h1{font-size:22px;font-weight:900;margin-bottom:18px;}
+#gate h1 span{color:var(--acc);}
+
+/* ===== شاشة اختيار النادي ===== */
+#clubGate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;gap:22px;background:radial-gradient(ellipse at 50% 30%,#181818,#070707);}
+#globalSettingsBtn{position:absolute;top:18px;left:18px;width:40px;height:40px;border-radius:50%;background:var(--card);
+  border:1px solid var(--border);font-size:18px;cursor:pointer;color:#fff;}
+.club-pick{width:150px;height:170px;border-radius:18px;background:var(--card);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+.club-pick .crest{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:24px;}
+.club-pick[data-c="milan"] .crest{background:linear-gradient(135deg,#E2101A,#7a0a0f);}
+.club-pick[data-c="barca"] .crest{background:linear-gradient(135deg,#A50044,#004D98);}
+.club-pick b{font-size:15px;}
+
+/* ===== لوحة التحكم ===== */
+#panel{display:none;}
+.top{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--bg);z-index:10;}
+.top .crest{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;background:var(--acc);}
+.top h2{font-size:16px;font-weight:800;flex:1;}
+.wrap{max-width:920px;margin:0 auto;padding:18px 20px 60px;}
+.mlist{display:flex;flex-direction:column;gap:10px;}
+.mrow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+.mrow img{width:44px;height:26px;object-fit:cover;border-radius:6px;background:var(--card2);flex-shrink:0;}
+.mrow .info{flex:1;min-width:0;}
+.mrow .info b{font-size:13px;display:block;}
+.mrow .info small{color:var(--mute);font-size:11px;}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;}
+.badge.live{background:var(--danger);color:#fff;}
+.badge.upcoming{background:#444;color:#fff;}
+.badge.finished{background:#2a2a2a;color:var(--mute);}
+.mrow .acts{display:flex;gap:6px;}
+.section-title{font-size:14px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;justify-content:between;}
+.sub-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.src-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px;}
+.src-card .src-top{display:flex;gap:8px;margin-bottom:8px;}
+.src-card .src-top select{width:110px;flex-shrink:0;}
+.src-card .src-top input{flex:1;}
+.src-card .src-bottom{display:flex;gap:8px;align-items:center;}
+.src-card .src-bottom input{flex:1;}
+.src-card .src-bottom input[type=number]{max-width:70px;flex:none;}
+.src-card .del-btn{width:34px;height:34px;flex-shrink:0;border-radius:8px;background:var(--danger);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.src-card .src-type-row{display:flex;gap:8px;margin-bottom:8px;}
+.src-card .src-type-row select{flex-shrink:0;width:150px;}
+.src-card .src-type-hint{font-size:10.5px;color:var(--mute);flex:1;align-self:center;}
+.qual-box{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px;}
+.qual-box .qual-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.qual-box .qual-head span{font-size:11px;font-weight:800;color:var(--mute);}
+.qual-row{display:flex;gap:6px;margin-bottom:6px;}
+.qual-row input{flex:1;}
+.qual-row input.qual-label{max-width:100px;flex:none;}
+.qual-row .del-btn{width:30px;height:30px;font-size:13px;}
+.btn.tiny{padding:5px 10px;font-size:11px;border-radius:7px;}
+
+.thumb-preview{width:100%;aspect-ratio:16/9;border-radius:10px;background:var(--card2);border:1px solid var(--border);
+  margin-top:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:11px;}
+.thumb-preview img{width:100%;height:100%;object-fit:cover;}
+.form-section{border-top:1px solid var(--border);margin-top:18px;padding-top:14px;}
+.form-section h4{font-size:13px;font-weight:800;color:var(--acc);margin-bottom:12px;}
+.stats-row{display:flex;gap:10px;margin:14px 0;}
+.stat-box{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;}
+.stat-box b{font-size:20px;display:block;}
+.stat-box span{font-size:11px;color:var(--mute);}
+.filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.filter-chip{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--mute);}
+.filter-chip.active{background:var(--acc);color:#fff;border-color:var(--acc);}
+.club-logo-box{display:flex;gap:10px;align-items:center;margin-bottom:18px;background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px;}
+.club-logo-box img{width:40px;height:40px;object-fit:contain;border-radius:50%;background:var(--card2);flex-shrink:0;}
+.club-logo-box .field{flex:1;margin-bottom:0;}
+.chk-list{display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;}
+.chk-item{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--card2);padding:6px 10px;border-radius:8px;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;
+  padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;}
+#toast.show{opacity:1;}
+#toast.err{background:var(--danger);}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-start;justify-content:center;
+  overflow-y:auto;padding:30px 12px;z-index:50;}
+.modal-bg.on{display:flex;}
+.modal{width:100%;max-width:560px;background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:20px;}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:16px;}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+.close-x{float:left;color:var(--mute);font-size:20px;cursor:pointer;}
+.top .btn.secondary{padding:8px 14px;}
+</style>
+</head>
+<body>
+
+<!-- شاشة تسجيل الدخول -->
+<div id="gate">
+  <div class="box">
+    <h1>ZO<span>NE</span> — لوحة التحكم</h1>
+    <div class="field" style="text-align:right"><input type="email" id="gateEmail" placeholder="البريد الإلكتروني"></div>
+    <div class="field" style="text-align:right"><input type="password" id="gateInput" placeholder="كلمة المرور"></div>
+    <button class="btn" style="width:100%" onclick="checkGate()">دخول</button>
+    <p id="gateMsg" style="color:var(--danger);font-size:12px;margin-top:10px;"></p>
+      </div>
+</div>
+
+<!-- اختيار النادي -->
+<div id="clubGate">
+  <button id="globalSettingsBtn" onclick="openGlobalSettings()" title="الإعدادات العامة">⚙️</button>
+  <div class="club-pick" data-c="milan" onclick="enterClub('milan')"><div class="crest">M</div><b>ميلان</b></div>
+  <div class="club-pick" data-c="barca" onclick="enterClub('barca')"><div class="crest">B</div><b>برشلونة</b></div>
+</div>
+
+<!-- نافذة الإعدادات العامة (غير مرتبطة بنادٍ) — مستقلة تمامًا عن أقسام النوادي -->
+<div class="modal-bg" id="globalSettingsBg">
+  <div class="modal">
+    <span class="close-x" onclick="closeGlobalSettings()">✕</span>
+    <h3>⚙️ الإعدادات العامة للتطبيق</h3>
+        <div class="row2">
+      <div class="field"><label>رابط قناة تيليجرام الأولى</label><input id="f_tg_link1" placeholder="https://t.me/..."></div>
+      <div class="field"><label>اسم القناة الأولى</label><input id="f_tg_label1" placeholder="القناة الأولى"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>رابط قناة تيليجرام الثانية</label><input id="f_tg_link2" placeholder="https://t.me/..."></div>
+      <div class="field"><label>اسم القناة الثانية</label><input id="f_tg_label2" placeholder="القناة الثانية"></div>
+    </div>
+    <div class="field"><label>سطر الحقوق</label><input id="f_rights_text" placeholder="© 2026 BarMi ZONE — جميع الحقوق محفوظة"></div>
+        <button class="btn" style="width:100%" onclick="saveAppSettings()">حفظ الإعدادات العامة</button>
+  </div>
+</div>
+
+<!-- اللوحة -->
+<div id="panel">
+  <div class="top">
+    <div class="crest" id="topCrest">M</div>
+    <h2 id="topTitle">ميلان</h2>
+    <button class="btn secondary" onclick="switchClub()">تبديل النادي</button>
+    <button class="btn secondary" onclick="openGlobalSettings()">⚙️ الإعدادات العامة</button>
+    <button class="btn secondary" onclick="doLogout()">تسجيل خروج</button>
+  </div>
+  <div class="wrap">
+    <div class="club-logo-box">
+      <img id="clubLogoPreview" src="" onerror="this.style.opacity=0">
+      <div class="field"><label>شعار النادي</label><input id="clubLogoInput" placeholder="https://..."></div>
+      <button class="btn secondary small" onclick="saveClubLogo()">حفظ</button>
+    </div>
+
+    <div class="stats-row" id="statsRow"></div>
+    <div class="filter-row" id="filterRow">
+      <div class="filter-chip active" data-f="all" onclick="setFilter('all')">الكل</div>
+      <div class="filter-chip" data-f="live" onclick="setFilter('live')">مباشرة</div>
+      <div class="filter-chip" data-f="upcoming" onclick="setFilter('upcoming')">قادمة</div>
+      <div class="filter-chip" data-f="finished" onclick="setFilter('finished')">منتهية</div>
+    </div>
+
+    <button class="btn" onclick="openMatchModal(null)">+ إضافة محتوى</button>
+        <div class="section-title">المباريات</div>
+    <div class="mlist" id="mlist"><p style="color:var(--mute)">جارِ التحميل…</p></div>
+  </div>
+</div>
+
+<!-- نافذة إضافة/تعديل مباراة -->
+<div class="modal-bg" id="matchModalBg">
+  <div class="modal">
+    <span class="close-x" onclick="closeMatchModal()">✕</span>
+    <h3 id="modalTitle">إضافة مباراة</h3>
+
+    <div class="field">
+      <label>عنوان المباراة</label>
+      <input id="f_title" placeholder="مثال: ميلان × إنتر - الديربي">
+    </div>
+
+    <div class="form-section"><h4>الفريقان</h4>
+      <div class="row2">
+        <div class="field"><label>الفريق المستضيف</label><input id="f_home_team"></div>
+        <div class="field"><label>الفريق الضيف</label><input id="f_away_team"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>شعار الفريق المستضيف</label><input id="f_home_logo"></div>
+        <div class="field"><label>شعار الفريق الضيف</label><input id="f_away_logo"></div>
+      </div>
+    </div>
+
+    <div class="form-section"><h4>البطولة والتوقيت</h4>
+      <div class="row2">
+        <div class="field"><label>البطولة</label><input id="f_competition" placeholder="الدوري الإيطالي..."></div>
+        <div class="field"><label>الجولة</label><input id="f_round" placeholder="مثال: 24"></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>الحالة</label>
+          <select id="f_status">
+            <option value="live">مباشرة الآن</option>
+            <option value="upcoming">قادمة</option>
+            <option value="finished">منتهية</option>
+          </select>
+        </div>
+        <div class="field"><label>نوع البث</label>
+          <select id="f_type">
+            <option value="live">بث مباشر</option>
+            <option value="vod">فيديو مسجل</option>
+          </select>
+        </div>
+        <div class="field"><label>وقت الانطلاق</label><input type="datetime-local" id="f_kickoff"></div>
+      </div>
+    </div>
+
+    <div class="form-section"><h4>الصورة والفئة</h4>
+      <div class="field">
+        <label>صورة المباراة</label>
+        <input id="f_thumb" placeholder="https://..." oninput="updateThumbPreview()">
+        <div class="thumb-preview" id="thumbPreview">لا توجد صورة بعد</div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>الفئة</label><input id="f_category" placeholder="أبرز المباريات / قنوات / ملخصات..."></div>
+        <div class="field"><label>ترتيب الفئة</label><input type="number" id="f_catorder" value="0"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>ترتيب داخل القائمة</label><input type="number" id="f_sort" value="0"></div>
+        <div class="field" style="display:flex;align-items:end;gap:8px;padding-bottom:6px;">
+          <input type="checkbox" id="f_banner" style="width:auto;"> <label style="margin:0;">إظهار في البنر العلوي</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section" id="upcomingSection">
+      <h4>معلومات المباراة القادمة</h4>
+      <div class="field"><label>نص يظهر للمستخدم</label><textarea id="f_upcoming_note" rows="3" placeholder="مثال: تُعرض المباراة حصريًا على قناة SSC 1 يوم الجمعة"></textarea></div>
+    </div>
+
+    <div class="form-section" id="sourcesSection">
+      <h4 id="sourcesTitle">السيرفرات</h4>
+            <div class="sub-list" id="sourcesList"></div>
+      <button class="btn secondary small" onclick="addSourceRow()">+ إضافة سيرفر</button>
+    </div>
+
+    <div class="form-section" id="relatedSection">
+      <h4>مباريات أخرى تظهر أسفل هذا الفيديو</h4>
+      <div class="chk-list" id="relatedList"></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn danger hide" id="btnDeleteMatch" onclick="deleteCurrentMatch()">حذف المباراة</button>
+      <button class="btn secondary" onclick="closeMatchModal()">إلغاء</button>
+      <button class="btn" onclick="saveMatch()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://ckriyvqnrzravknajckl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_rFMfYa3nWxyxp6_zYUdtCw_znCYEKfV';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CLUB_NAMES = { milan:'ميلان', barca:'برشلونة' };
+let currentClub = null;
+let matches = [];
+let editingId = null;
+let sourceRows = []; // {tab,label,url,sort_order}
+
+function toast(msg, err){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show' + (err?' err':'');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ===== الدخول عبر Supabase Auth ===== */
+async function checkGate(){
+  const email = document.getElementById('gateEmail').value.trim();
+  const password = document.getElementById('gateInput').value;
+  document.getElementById('gateMsg').textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error){
+    document.getElementById('gateMsg').textContent = 'بيانات الدخول غير صحيحة';
+    return;
+  }
+  afterLogin();
+}
+document.getElementById('gateInput').addEventListener('keydown', e=>{ if(e.key==='Enter') checkGate(); });
+
+async function afterLogin(){
+  document.getElementById('gate').style.display='none';
+  if (sessionStorage.getItem('zoneClub')) {
+    enterClub(sessionStorage.getItem('zoneClub'));
+  } else {
+    document.getElementById('clubGate').style.display='flex';
+  }
+}
+async function doLogout(){
+  await sb.auth.signOut();
+  sessionStorage.removeItem('zoneClub');
+  document.getElementById('panel').style.display='none';
+  document.getElementById('clubGate').style.display='none';
+  document.getElementById('gate').style.display='flex';
+}
+
+// إذا كان هناك جلسة محفوظة من قبل (تسجيل الدخول يبقى فعّالاً بين الزيارات)
+(async function initAuth(){
+  const { data } = await sb.auth.getSession();
+  if (data && data.session){ afterLogin(); }
+})();
+
+function enterClub(club){
+  currentClub = club;
+  sessionStorage.setItem('zoneClub', club);
+  document.body.setAttribute('data-club', club);
+  document.getElementById('clubGate').style.display='none';
+  document.getElementById('panel').style.display='block';
+  document.getElementById('topCrest').textContent = club==='milan' ? 'M':'B';
+  document.getElementById('topTitle').textContent = CLUB_NAMES[club];
+  loadClubLogo();
+  loadMatches();
+}
+async function loadClubLogo(){
+  const { data } = await sb.from('club_settings').select('logo_url').eq('club', currentClub).single();
+  document.getElementById('clubLogoInput').value = (data && data.logo_url) || '';
+  document.getElementById('clubLogoPreview').src = (data && data.logo_url) || '';
+}
+async function loadAppSettings(){
+  const { data } = await sb.from('app_settings').select('*').eq('id', 1).single();
+  document.getElementById('f_tg_link1').value = (data && data.telegram_link_1) || '';
+  document.getElementById('f_tg_label1').value = (data && data.telegram_label_1) || '';
+  document.getElementById('f_tg_link2').value = (data && data.telegram_link_2) || '';
+  document.getElementById('f_tg_label2').value = (data && data.telegram_label_2) || '';
+  document.getElementById('f_rights_text').value = (data && data.rights_text) || '';
+}
+function openGlobalSettings(){
+  loadAppSettings();
+  document.getElementById('globalSettingsBg').classList.add('on');
+}
+function closeGlobalSettings(){ document.getElementById('globalSettingsBg').classList.remove('on'); }
+async function saveAppSettings(){
+  const payload = {
+    id: 1,
+    telegram_link_1: document.getElementById('f_tg_link1').value.trim(),
+    telegram_label_1: document.getElementById('f_tg_label1').value.trim() || 'القناة الأولى',
+    telegram_link_2: document.getElementById('f_tg_link2').value.trim(),
+    telegram_label_2: document.getElementById('f_tg_label2').value.trim() || 'القناة الثانية',
+    rights_text: document.getElementById('f_rights_text').value.trim(),
+  };
+  const { error } = await sb.from('app_settings').upsert(payload);
+  if (error){ toast('تعذر الحفظ: '+error.message, true); return; }
+  toast('تم حفظ الإعدادات العامة');
+}
+async function saveClubLogo(){
+  const url = document.getElementById('clubLogoInput').value.trim();
+  const { error } = await sb.from('club_settings').upsert({ club: currentClub, logo_url: url });
+  if (error){ toast('تعذر الحفظ: '+error.message, true); return; }
+  document.getElementById('clubLogoPreview').src = url;
+  toast('تم حفظ شعار النادي');
+}
+function switchClub(){
+  sessionStorage.removeItem('zoneClub');
+  document.getElementById('panel').style.display='none';
+  document.getElementById('clubGate').style.display='flex';
+}
+
+/* ===== تحميل المباريات ===== */
+let currentFilter = 'all';
+async function loadMatches(){
+  document.getElementById('mlist').innerHTML = '<p style="color:var(--mute)">جارِ التحميل…</p>';
+  const { data, error } = await sb.from('matches').select('*').eq('club', currentClub)
+    .order('status').order('sort_order');
+  if (error){ document.getElementById('mlist').innerHTML = '<p style="color:var(--danger)">تعذر التحميل: '+error.message+'</p>'; return; }
+  matches = data || [];
+  renderStats();
+  renderMatchList();
+}
+function renderStats(){
+  const c = { live:0, upcoming:0, finished:0 };
+  matches.forEach(m=>{ if(c[m.status]!==undefined) c[m.status]++; });
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-box"><b>${c.live}</b><span>مباشرة</span></div>
+    <div class="stat-box"><b>${c.upcoming}</b><span>قادمة</span></div>
+    <div class="stat-box"><b>${c.finished}</b><span>منتهية</span></div>`;
+}
+function setFilter(f){
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.toggle('active', c.dataset.f===f));
+  renderMatchList();
+}
+function statusLabel(s){ return s==='live'?'مباشرة':s==='upcoming'?'قادمة':'منتهية'; }
+function renderMatchList(){
+  const list = currentFilter==='all' ? matches : matches.filter(m=>m.status===currentFilter);
+  if (!list.length){ document.getElementById('mlist').innerHTML = '<p style="color:var(--mute)">لا توجد مباريات هنا</p>'; return; }
+  document.getElementById('mlist').innerHTML = list.map(m=>`
+    <div class="mrow">
+      <img src="${m.thumbnail_url||''}" onerror="this.style.opacity=0">
+      <div class="info">
+        <b>${escapeHtml(m.title || ((m.home_team||'—')+(m.away_team?(' vs '+m.away_team):'')))}</b>
+        <small>${escapeHtml(m.competition||'')} ${m.round?(' · الجولة '+escapeHtml(m.round)):''} · ${m.type==='live'?'بث مباشر':'فيديو مسجل'}</small>
+      </div>
+      <span class="badge ${m.status}">${statusLabel(m.status)}</span>
+      <div class="acts">
+        <button class="btn secondary small" onclick="openMatchModal('${m.id}')">تعديل</button>
+        <button class="btn secondary small" onclick="duplicateMatch('${m.id}')">تكرار</button>
+      </div>
+    </div>`).join('');
+}
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function duplicateMatch(id){
+  const m = matches.find(x=>x.id===id);
+  if (!m) return;
+  const copy = { ...m };
+  delete copy.id; delete copy.created_at;
+  copy.title = (copy.title||'') + ' (نسخة)';
+  const { data, error } = await sb.from('matches').insert(copy).select().single();
+  if (error){ toast('تعذر التكرار: '+error.message, true); return; }
+  const { data:srcs } = await sb.from('match_sources').select('*').eq('match_id', id);
+  if (srcs && srcs.length){
+    await sb.from('match_sources').insert(srcs.map(s=>({ match_id: data.id, tab:s.tab, label:s.label, url:s.url, sort_order:s.sort_order, stream_type:s.stream_type||'auto', qualities:s.qualities||[] })));
+  }
+  toast('تم إنشاء نسخة من المباراة');
+  loadMatches();
+}
+
+/* ===== نافذة المباراة ===== */
+function openMatchModal(id){
+  editingId = id;
+  const m = id ? matches.find(x=>x.id===id) : null;
+  document.getElementById('modalTitle').textContent = id ? 'تعديل المحتوى' : 'إضافة محتوى جديد';
+  document.getElementById('btnDeleteMatch').classList.toggle('hide', !id);
+
+  document.getElementById('f_title').value = m?.title || '';
+  document.getElementById('f_home_team').value = m?.home_team || '';
+  document.getElementById('f_away_team').value = m?.away_team || '';
+  document.getElementById('f_home_logo').value = m?.home_logo || '';
+  document.getElementById('f_away_logo').value = m?.away_logo || '';
+  document.getElementById('f_competition').value = m?.competition || '';
+  document.getElementById('f_round').value = m?.round || '';
+  document.getElementById('f_status').value = m?.status || 'upcoming';
+  document.getElementById('f_type').value = m?.type || 'vod';
+  document.getElementById('f_kickoff').value = m?.kickoff_at ? toLocalInput(m.kickoff_at) : '';
+  document.getElementById('f_thumb').value = m?.thumbnail_url || '';
+  document.getElementById('f_category').value = m?.category || '';
+  document.getElementById('f_catorder').value = m?.category_order || 0;
+  document.getElementById('f_sort').value = m?.sort_order || 0;
+  document.getElementById('f_banner').checked = !!m?.is_banner;
+  document.getElementById('f_upcoming_note').value = m?.upcoming_note || '';
+  updateThumbPreview();
+
+  updateTypeSections();
+  document.getElementById('f_type').onchange = updateTypeSections;
+  updateStatusSections();
+  document.getElementById('f_status').onchange = updateStatusSections;
+
+  if (id){ loadSourcesFor(id); loadRelatedFor(id); }
+  else { sourceRows = []; renderSourceRows(); renderRelatedChecklist([]); }
+
+  document.getElementById('matchModalBg').classList.add('on');
+}
+function toLocalInput(iso){
+  const d = new Date(iso);
+  const pad = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function closeMatchModal(){ document.getElementById('matchModalBg').classList.remove('on'); }
+function updateThumbPreview(){
+  const url = document.getElementById('f_thumb').value.trim();
+  const box = document.getElementById('thumbPreview');
+  box.innerHTML = url ? `<img src="${url}" onerror="this.parentElement.textContent='تعذر تحميل الصورة، تأكد من الرابط'">` : 'لا توجد صورة بعد';
+}
+
+function updateTypeSections(){
+  const type = document.getElementById('f_type').value;
+  document.getElementById('sourcesSection').classList.remove('hide');
+  document.getElementById('sourcesTitle').textContent = type==='live' ? 'سيرفرات البث المباشر' : 'روابط كاملة وملخص';
+  document.getElementById('relatedSection').classList.toggle('hide', type!=='vod');
+}
+function updateStatusSections(){
+  const status = document.getElementById('f_status').value;
+  document.getElementById('upcomingSection').classList.toggle('hide', status!=='upcoming');
+}
+
+/* ===== سيرفرات المباراة ===== */
+async function loadSourcesFor(id){
+  const { data } = await sb.from('match_sources').select('*').eq('match_id', id).order('sort_order');
+  sourceRows = (data||[]).map(s=>({
+    tab:s.tab, label:s.label, url:s.url, sort_order:s.sort_order,
+    stream_type: s.stream_type || 'auto',
+    qualities: Array.isArray(s.qualities) ? s.qualities.map(q=>({label:q.label||'', url:q.url||''})) : []
+  }));
+  renderSourceRows();
+}
+function addSourceRow(){
+  const type = document.getElementById('f_type').value;
+  sourceRows.push({ tab: type==='live'?'live':'full', label:'سيرفر '+(sourceRows.length+1), url:'', sort_order: sourceRows.length, stream_type:'auto', qualities:[] });
+  renderSourceRows();
+}
+function renderSourceRows(){
+  const type = document.getElementById('f_type').value;
+  const tabOptions = type==='live'
+    ? `<option value="live">مباشر</option>`
+    : `<option value="full">كاملة</option><option value="highlight">ملخص</option>`;
+  const streamTypeOptions = `
+    <option value="auto">🔎 تلقائي (يكتشفه المشغل من الرابط)</option>
+    <option value="live">🔴 بث مباشر (إجباري)</option>
+    <option value="vod">🎬 فيديو مسجل (إجباري)</option>`;
+  document.getElementById('sourcesList').innerHTML = sourceRows.map((s,i)=>{
+    const quals = s.qualities || [];
+    return `
+    <div class="src-card">
+      <div class="src-top">
+        <select onchange="sourceRows[${i}].tab=this.value">${tabOptions.replace('value="'+s.tab+'"','value="'+s.tab+'" selected')}</select>
+        <input placeholder="اسم السيرفر (مثال: سيرفر 1)" value="${escapeHtml(s.label)}" onchange="sourceRows[${i}].label=this.value">
+      </div>
+      <div class="src-bottom">
+        <input placeholder="رابط m3u8 / mp4 / embed" value="${escapeHtml(s.url)}" onchange="sourceRows[${i}].url=this.value">
+        <input type="number" title="الترتيب" value="${s.sort_order}" onchange="sourceRows[${i}].sort_order=parseInt(this.value)||0">
+        <div class="del-btn" onclick="removeSourceRow(${i})">✕</div>
+      </div>
+      <div class="src-type-row">
+        <select onchange="sourceRows[${i}].stream_type=this.value">${streamTypeOptions.replace('value="'+(s.stream_type||'auto')+'"','value="'+(s.stream_type||'auto')+'" selected')}</select>
+        <span class="src-type-hint">حدد "تلقائي" إلا إذا كان اكتشاف المشغل خاطئًا لهذا الرابط</span>
+      </div>
+      <div class="qual-box">
+        <div class="qual-head">
+          <span>جودات إضافية</span>
+          <button type="button" class="btn secondary tiny" onclick="addQualityRow(${i})">+ إضافة جودة</button>
+        </div>
+        <div class="qual-list">
+          ${quals.map((q,qi)=>`
+            <div class="qual-row">
+              <input class="qual-label" placeholder="1080p" value="${escapeHtml(q.label)}" onchange="sourceRows[${i}].qualities[${qi}].label=this.value">
+              <input placeholder="رابط هذه الجودة" value="${escapeHtml(q.url)}" onchange="sourceRows[${i}].qualities[${qi}].url=this.value">
+              <div class="del-btn" onclick="removeQualityRow(${i},${qi})">✕</div>
+            </div>`).join('') || '<p style="color:var(--mute);font-size:11px;">بدون جودات إضافية — يعمل رابط السيرفر الرئيسي فقط</p>'}
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<p style="color:var(--mute);font-size:12px;">لا توجد سيرفرات، اضغط "إضافة سيرفر"</p>';
+}
+function removeSourceRow(i){ sourceRows.splice(i,1); renderSourceRows(); }
+function addQualityRow(i){
+  if (!sourceRows[i].qualities) sourceRows[i].qualities = [];
+  sourceRows[i].qualities.push({ label:'', url:'' });
+  renderSourceRows();
+}
+function removeQualityRow(i,qi){ sourceRows[i].qualities.splice(qi,1); renderSourceRows(); }
+
+/* ===== المباريات المرتبطة (تُعرض تحت الفيديو المسجل) ===== */
+async function loadRelatedFor(id){
+  const { data } = await sb.from('match_related').select('related_match_id').eq('match_id', id);
+  const selected = (data||[]).map(r=>r.related_match_id);
+  renderRelatedChecklist(selected);
+}
+function renderRelatedChecklist(selected){
+  const others = matches.filter(m=>m.id !== editingId);
+  if (!others.length){ document.getElementById('relatedList').innerHTML = '<span style="color:var(--mute);font-size:12px;">لا توجد مباريات أخرى بعد</span>'; return; }
+  document.getElementById('relatedList').innerHTML = others.map(m=>`
+    <label class="chk-item">
+      <input type="checkbox" value="${m.id}" ${selected.includes(m.id)?'checked':''}>
+      ${escapeHtml(m.title || ((m.home_team||'')+(m.away_team?(' - '+m.away_team):'')))}
+    </label>`).join('');
+}
+
+/* ===== حفظ ===== */
+async function saveMatch(){
+  const payload = {
+    club: currentClub,
+    title: val('f_title'),
+    home_team: val('f_home_team'), away_team: val('f_away_team'),
+    home_logo: val('f_home_logo'), away_logo: val('f_away_logo'),
+    competition: val('f_competition'), round: val('f_round'),
+    status: val('f_status'), type: val('f_type'),
+    kickoff_at: val('f_kickoff') ? new Date(val('f_kickoff')).toISOString() : null,
+    thumbnail_url: val('f_thumb'), category: val('f_category'),
+    category_order: parseInt(val('f_catorder'))||0,
+    sort_order: parseInt(val('f_sort'))||0,
+    is_banner: document.getElementById('f_banner').checked,
+    upcoming_note: val('f_upcoming_note')
+  };
+
+  let matchId = editingId;
+  try{
+    if (matchId){
+      const { error } = await sb.from('matches').update(payload).eq('id', matchId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await sb.from('matches').insert(payload).select().single();
+      if (error) throw error;
+      matchId = data.id;
+    }
+
+    // حفظ السيرفرات: حذف القديم وإدراج الحالي (أبسط وأضمن تزامن)
+    await sb.from('match_sources').delete().eq('match_id', matchId);
+    const cleanSources = sourceRows.filter(s=>s.url && s.url.trim());
+    if (cleanSources.length){
+      await sb.from('match_sources').insert(cleanSources.map(s=>({
+        match_id: matchId, tab:s.tab, label:s.label||'سيرفر', url:s.url, sort_order:s.sort_order||0,
+        stream_type: s.stream_type || 'auto',
+        qualities: (s.qualities||[]).filter(q=>q.url && q.url.trim()).map(q=>({ label:(q.label||'').trim()||'جودة', url:q.url.trim() }))
+      })));
+    }
+
+    // حفظ المباريات المرتبطة
+    if (val('f_type')==='vod'){
+      const checked = Array.from(document.querySelectorAll('#relatedList input[type=checkbox]:checked')).map(c=>c.value);
+      await sb.from('match_related').delete().eq('match_id', matchId);
+      if (checked.length){
+        await sb.from('match_related').insert(checked.map((rid,i)=>({ match_id: matchId, related_match_id: rid, sort_order: i })));
+      }
+    }
+
+    toast('تم الحفظ بنجاح');
+    closeMatchModal();
+    loadMatches();
+  }catch(e){
+    toast('حدث خطأ: '+(e.message||e), true);
+  }
+}
+function val(id){ return document.getElementById(id).value.trim ? document.getElementById(id).value.trim() : document.getElementById(id).value; }
+
+async function deleteCurrentMatch(){
+  if (!editingId) return;
+  if (!confirm('هل تريد حذف هذه المباراة نهائياً؟ سيتم حذف كل سيرفراتها المرتبطة بها.')) return;
+  try{
+    await sb.from('match_related').delete().eq('match_id', editingId);
+    await sb.from('match_related').delete().eq('related_match_id', editingId);
+    await sb.from('match_sources').delete().eq('match_id', editingId);
+    const { error } = await sb.from('matches').delete().eq('id', editingId);
+    if (error) throw error;
+    toast('تم الحذف');
+    closeMatchModal();
+    loadMatches();
+  }catch(e){ toast('تعذر الحذف: '+(e.message||e), true); }
+}
+</script>
+</body>
+</html>
