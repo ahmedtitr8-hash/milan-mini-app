@@ -1477,20 +1477,17 @@ function renderServerMenuPage(){
     const activeItem = pageItems.splice(activePos, 1)[0];
     pageItems.splice(Math.floor(pageItems.length / 2), 0, activeItem);
   }
-  const chipStyle = 'height:60px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;cursor:pointer;';
-  const textStyle = 'display:inline-block;transform:rotate(-90deg);white-space:nowrap;';
+  const chipStyle = 'padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;';
   let html = pageItems.map(({s, realIdx})=>{
     const active = s.url===activeUrl;
-    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);':''}"><span style="${textStyle}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</span></div>`;
+    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);':''}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
   }).join('<div style="height:1px;background:var(--border)"></div>');
   if (list.length > SERVERS_PER_PAGE){
     // سهم صفحات (ضمن اللوحة نفسها) للتنقل لباقي القنوات لو كانت أكثر من صفحة واحدة
     html += `<div style="height:1px;background:var(--border)"></div>
-      <div data-srv-next="1" style="${chipStyle}">
-        <span style="${textStyle}display:flex;align-items:center;">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
-        </span>
-      </div>`;
+      <div data-srv-next="1" style="${chipStyle}display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+    </div>`;
   }
   panel.innerHTML = html;
   panel.querySelectorAll('[data-srv]').forEach(el=>{
