@@ -121,3 +121,25 @@ create policy "public read club_settings" on public.club_settings for select usi
 drop policy if exists "auth write club_settings" on public.club_settings;
 create policy "auth write club_settings" on public.club_settings for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- ============================================================
+--  إعدادات عامة للتطبيق (غير مرتبطة بنادٍ معيّن): روابط قناتي تيليجرام + سطر الحقوق
+--  صف واحد ثابت (id=1) يُحدَّث دائمًا، لا يُضاف له صفوف جديدة
+-- ============================================================
+create table if not exists public.app_settings (
+  id int primary key default 1,
+  telegram_link_1  text default '',
+  telegram_label_1 text default 'القناة الأولى',
+  telegram_link_2  text default '',
+  telegram_label_2 text default 'القناة الثانية',
+  rights_text      text default '© 2026 BarMi ZONE — جميع الحقوق محفوظة',
+  constraint app_settings_single_row check (id = 1)
+);
+insert into public.app_settings (id) values (1) on conflict do nothing;
+
+alter table public.app_settings enable row level security;
+drop policy if exists "public read app_settings" on public.app_settings;
+create policy "public read app_settings" on public.app_settings for select using (true);
+drop policy if exists "auth write app_settings" on public.app_settings;
+create policy "auth write app_settings" on public.app_settings for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
