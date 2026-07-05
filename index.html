@@ -339,11 +339,6 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
     <div class="player-scroll">
       <div id="playerWrap" onclick="onPlayerTap(event)">
         <div id="playerPlaceholder"><div class="spinner"></div><span>جارِ تحميل البث…</span></div>
-        <div id="serverMenu" class="hide" style="position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.55);" onclick="toggleServerMenu()">
-          <div id="serverMenuPanel" style="position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:78px;
-            background:rgba(18,18,18,.97);border:1px solid var(--border);display:flex;flex-direction:column;
-            align-items:center;justify-content:center;gap:8px;overflow-y:auto;padding:10px 0;" onclick="event.stopPropagation()"></div>
-        </div>
         <div id="playerToast" class="hide"></div>
         <video id="mainVideo" playsinline webkit-playsinline></video>
         <div id="liveBadgeP"><span class="bdot"></span> مباشر</div>
@@ -381,6 +376,9 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
                 <button onclick="toggleFS()" id="btnFS"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
               </div>
             </div>
+            <div id="serverMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
+              border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:190px;max-height:230px;overflow-y:auto;
+              display:flex;flex-direction:column;" onclick="event.stopPropagation()"></div>
             <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;" onclick="event.stopPropagation()">
               <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
@@ -1380,20 +1378,21 @@ function setServersButtonVisibility(){
 let serverMenuPage = 0;
 const SERVERS_PER_PAGE = 9;
 function renderServerMenuPage(){
-  const panel = document.getElementById('serverMenuPanel');
+  const panel = document.getElementById('serverMenu');
   const list = currentTabSources();
   const activeUrl = lastUrl;
   const start = serverMenuPage * SERVERS_PER_PAGE;
   const pageItems = list.slice(start, start + SERVERS_PER_PAGE);
-  const chipStyle = 'padding:8px 6px;border-radius:10px;font-size:10.5px;font-weight:700;color:#fff;white-space:nowrap;background:rgba(255,255,255,.08);border:1px solid var(--border);cursor:pointer;width:64px;text-align:center;box-sizing:border-box;';
+  const chipStyle = 'padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;';
   let html = pageItems.map((s,i)=>{
     const realIdx = start + i;
     const active = s.url===activeUrl;
-    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);border-color:var(--acc);':''}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
-  }).join('');
+    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);':''}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
+  }).join('<div style="height:1px;background:var(--border)"></div>');
   if (list.length > SERVERS_PER_PAGE){
     // سهم صفحات (ضمن اللوحة نفسها) للتنقل لباقي القنوات لو كانت أكثر من صفحة واحدة
-    html += `<div data-srv-next="1" style="${chipStyle}display:flex;align-items:center;justify-content:center;">
+    html += `<div style="height:1px;background:var(--border)"></div>
+      <div data-srv-next="1" style="${chipStyle}display:flex;align-items:center;justify-content:center;">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
     </div>`;
   }
