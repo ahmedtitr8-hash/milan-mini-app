@@ -32,7 +32,7 @@
 :root{
   --acc:#E87B00; --acc2:#FF9520;
   --bg:#070707; --card:#141414; --card2:#1c1c1c; --border:#262626;
-  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F;
+  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
 }
 body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
 body[data-club="barca"]{ --acc:#A50044; --acc2:#1E6DE0; }
@@ -69,7 +69,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .club-sub{font-size:11px;color:var(--mute);}
 
 /* ===== هيدر الأندية ===== */
-.top-bar{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
+.top-bar{display:flex;align-items:center;gap:10px;padding:calc(14px + var(--tg-safe-top)) 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
 .icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .icon-btn svg{width:19px;height:19px;fill:#fff;}
 .top-crest{height:28px;width:auto;max-width:64px;object-fit:contain;flex-shrink:0;}
@@ -437,9 +437,24 @@ try{
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
     // نطلب فول سكرين تيليجرام على مستوى التطبيق كامل من البداية (لا فقط أثناء تشغيل الفيديو)،
-    // لعل هذا يعطي شكل الشريط المبسّط نفسه اللي يظهر أثناء تشغيل الفيديو، على كل صفحات التطبيق
+    // فيعطي شكل الشريط المبسّط نفسه على كل صفحات التطبيق
     if (typeof Telegram.WebApp.requestFullscreen === 'function'){
       try{ Telegram.WebApp.requestFullscreen(); }catch(e){}
+    }
+    // بوضع الفول سكرين، تيليجرام يحجز مساحة علوية لعناصر التحكم الخاصة به (contentSafeAreaInset) —
+    // إن لم نحترم هذي المساحة، محتوانا (الشريط العلوي لصفحتنا) يرتفع فوقها ويتصادم بصريًا معها كما لوحظ.
+    // نطبّق هذي المساحة كـpadding-top على الصفحة كاملة، ونحدّثها كل ما تتغيّر (دخول/خروج فول سكرين)
+    function applyTgSafeArea(){
+      const c = Telegram.WebApp.contentSafeAreaInset || {};
+      const s = Telegram.WebApp.safeAreaInset || {};
+      const top = (c.top||0) + (s.top||0);
+      document.documentElement.style.setProperty('--tg-safe-top', top + 'px');
+    }
+    applyTgSafeArea();
+    if (typeof Telegram.WebApp.onEvent === 'function'){
+      Telegram.WebApp.onEvent('contentSafeAreaChanged', applyTgSafeArea);
+      Telegram.WebApp.onEvent('safeAreaChanged', applyTgSafeArea);
+      Telegram.WebApp.onEvent('fullscreenChanged', applyTgSafeArea);
     }
   }
 }catch(e){}
@@ -1577,4 +1592,3 @@ function exitFS(){
 </script>
 </body>
 </html>
-
