@@ -521,9 +521,11 @@ function renderSourceRows(){
     ? `<option value="live">مباشر</option>`
     : `<option value="full">كاملة</option><option value="highlight">ملخص</option>`;
   const streamTypeOptions = `
-    <option value="auto">🔎 تلقائي (يكتشفه المشغل من الرابط)</option>
-    <option value="live">🔴 بث مباشر (إجباري)</option>
-    <option value="vod">🎬 فيديو مسجل (إجباري)</option>`;
+<option value="auto">🔎 تلقائي</option>
+<option value="live">🔴 مباشر</option>
+<option value="vod">🎬 مسجل</option>
+<option value="iframe">🖼️ Iframe (Embed)</option>
+`;
   document.getElementById('sourcesList').innerHTML = sourceRows.map((s,i)=>{
     const quals = s.qualities || [];
     return `
