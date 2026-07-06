@@ -151,6 +151,7 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
       <div class="field"><label>اسم القناة الثانية</label><input id="f_tg_label2" placeholder="القناة الثانية"></div>
     </div>
     <div class="field"><label>سطر الحقوق</label><input id="f_rights_text" placeholder="© 2026 BarMi ZONE — جميع الحقوق محفوظة"></div>
+    <div class="field"><label>شريط إخباري متحرك (يظهر أعلى التطبيق، اتركه فاضي لإخفائه)</label><input id="f_ticker_text" placeholder="مثال: خبر عاجل، إعلان، أو أي نص تحبه"></div>
         <button class="btn" style="width:100%" onclick="saveAppSettings()">حفظ الإعدادات العامة</button>
   </div>
 </div>
@@ -168,6 +169,12 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
     <div class="club-logo-box">
       <img id="clubLogoPreview" src="" onerror="this.style.opacity=0">
       <div class="field"><label>شعار النادي</label><input id="clubLogoInput" placeholder="https://..."></div>
+    </div>
+    <div class="club-logo-box">
+      <div class="row2">
+        <div class="field"><label>رابط قناة تيليجرام الخاصة بالنادي</label><input id="clubTgLinkInput" placeholder="https://t.me/..."></div>
+        <div class="field"><label>اسم القناة (يظهر على الزر)</label><input id="clubTgLabelInput" placeholder="قناة النادي على تيليجرام"></div>
+      </div>
       <button class="btn secondary small" onclick="saveClubLogo()">حفظ</button>
     </div>
 
@@ -339,9 +346,11 @@ function enterClub(club){
   loadMatches();
 }
 async function loadClubLogo(){
-  const { data } = await sb.from('club_settings').select('logo_url').eq('club', currentClub).single();
+  const { data } = await sb.from('club_settings').select('*').eq('club', currentClub).single();
   document.getElementById('clubLogoInput').value = (data && data.logo_url) || '';
   document.getElementById('clubLogoPreview').src = (data && data.logo_url) || '';
+  document.getElementById('clubTgLinkInput').value = (data && data.telegram_link) || '';
+  document.getElementById('clubTgLabelInput').value = (data && data.telegram_label) || '';
 }
 async function loadAppSettings(){
   const { data } = await sb.from('app_settings').select('*').eq('id', 1).single();
@@ -350,6 +359,7 @@ async function loadAppSettings(){
   document.getElementById('f_tg_link2').value = (data && data.telegram_link_2) || '';
   document.getElementById('f_tg_label2').value = (data && data.telegram_label_2) || '';
   document.getElementById('f_rights_text').value = (data && data.rights_text) || '';
+  document.getElementById('f_ticker_text').value = (data && data.ticker_text) || '';
 }
 function openGlobalSettings(){
   loadAppSettings();
@@ -364,6 +374,7 @@ async function saveAppSettings(){
     telegram_link_2: document.getElementById('f_tg_link2').value.trim(),
     telegram_label_2: document.getElementById('f_tg_label2').value.trim() || 'القناة الثانية',
     rights_text: document.getElementById('f_rights_text').value.trim(),
+    ticker_text: document.getElementById('f_ticker_text').value.trim(),
   };
   const { error } = await sb.from('app_settings').upsert(payload);
   if (error){ toast('تعذر الحفظ: '+error.message, true); return; }
@@ -371,10 +382,12 @@ async function saveAppSettings(){
 }
 async function saveClubLogo(){
   const url = document.getElementById('clubLogoInput').value.trim();
-  const { error } = await sb.from('club_settings').upsert({ club: currentClub, logo_url: url });
+  const tgLink = document.getElementById('clubTgLinkInput').value.trim();
+  const tgLabel = document.getElementById('clubTgLabelInput').value.trim() || 'قناة النادي على تيليجرام';
+  const { error } = await sb.from('club_settings').upsert({ club: currentClub, logo_url: url, telegram_link: tgLink, telegram_label: tgLabel });
   if (error){ toast('تعذر الحفظ: '+error.message, true); return; }
   document.getElementById('clubLogoPreview').src = url;
-  toast('تم حفظ شعار النادي');
+  toast('تم حفظ إعدادات النادي');
 }
 function switchClub(){
   sessionStorage.removeItem('zoneClub');
