@@ -35,6 +35,12 @@
   --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
 }
 body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
+#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--tg-safe-top);min-height:0;overflow:hidden;
+  background:var(--acc);z-index:10000;display:flex;align-items:center;}
+#tickerBar.hide{display:none;}
+#tickerText{position:absolute;white-space:nowrap;font-size:11px;font-weight:800;color:#fff;
+  animation:ticker-scroll 14s linear infinite;}
+@keyframes ticker-scroll{from{transform:translateX(-100%);}to{transform:translateX(100vw);}}
 body[data-club="barca"]{ --acc:#A50044; --acc2:#1E6DE0; }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{background:var(--bg);color:var(--txt);font-family:'Cairo',sans-serif;height:100%;overflow:hidden;}
@@ -244,6 +250,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
 </style>
 </head>
 <body>
+<div id="tickerBar" class="hide"><div id="tickerText"></div></div>
 <div id="app">
 
   <!-- شاشة اختيار النادي -->
@@ -500,6 +507,10 @@ async function loadAppSettings(){
       document.getElementById('rightsLine').textContent = data.rights_text;
       document.getElementById('rightsLine').classList.remove('hide');
     }
+    if (data.ticker_text){
+      document.getElementById('tickerText').textContent = data.ticker_text;
+      document.getElementById('tickerBar').classList.remove('hide');
+    }
   }catch(e){}
 }
 loadAppSettings();
@@ -519,7 +530,8 @@ async function openClub(club){
   await loadHome();
 }
 async function loadClubLogo(club){
-  const { data } = await sb.from('club_settings').select('logo_url').eq('club', club).single();
+  const { data } = await sb.from('club_settings').select('*').eq('club', club).single();
+  state.clubTelegram = data ? { link: data.telegram_link||'', label: data.telegram_label||'' } : null;
   const url = data && data.logo_url;
   if (!url) return;
   ['homeCrest','finCrest'].forEach(id=>{
@@ -834,6 +846,17 @@ function renderBelowPlayer(){
 
   document.getElementById('belowPlayer').innerHTML = html;
   setServersButtonVisibility();
+  const tg = state.clubTelegram;
+  if (tg && tg.link){
+    document.getElementById('belowPlayer').insertAdjacentHTML('beforeend', `
+      <a href="${tg.link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;
+        margin:14px auto 4px;width:100%;max-width:280px;padding:11px 16px;border-radius:12px;
+        background:rgba(255,255,255,.06);border:1px solid var(--border);color:#fff;text-decoration:none;
+        font-size:13px;font-weight:700;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="#2AABEE"><path d="M21.5 4.5L2.7 12.2c-1.2.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.8c.2.7.5.9 1.2.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.3 1.8-.8l3.3-15.5c.4-1.4-.5-2-1.3-1.6z"/></svg>
+        <span>${escapeHtml(tg.label || 'قناة النادي على تيليجرام')}</span>
+      </a>`);
+  }
 }
 function switchTab(tab){
   state.currentTab = tab;
@@ -1301,6 +1324,16 @@ async function loadSource(url, source){
   lastSource = source || null;
   state.currentSource = source || null;
   resetPlayerUI();
+
+  // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
+  if (url && /<iframe[\s>]/i.test(url)){
+    const m = url.match(/src=["']([^"']+)["']/i);
+    if (m && m[1]){
+      showEmbed(m[1].startsWith('http') ? m[1] : ('https:'+m[1]));
+      setupQualityMenu();
+      return;
+    }
+  }
 
   if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
   const rawUrl = url.trim();
