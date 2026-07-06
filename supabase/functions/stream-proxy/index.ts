@@ -2,13 +2,15 @@
 // حتى يقدر المشغل في الميني آب (صفحة https) يشغّله بشكل طبيعي بدون أي قيد Mixed Content من المتصفح.
 // يدعم: قوائم HLS (m3u8 رئيسية وفرعية) مع إعادة كتابة كل الروابط الداخلية (مقاطع + مفاتيح تشفير)
 // لتمر أيضًا عبر هذا البروكسي نفسه، بالإضافة لتمرير المقاطع الخام (.ts وغيرها) كما هي (streaming حقيقي
-// عبر تمرير upstream.body مباشرة، وليس تجميعه كاملاً في الذاكرة أولاً) بدون تعديل.
+// بلا تجميع كامل بالذاكرة أولاً) بدون تعديل.
 //
-// ⚠️ مهم جدًا: هذه الفانكشن لازم تُنشر بدون التحقق من JWT (verify_jwt = false)، لأنها تُستدعى مباشرة
-// من داخل <video src="...">، ومن مكتبات hls.js / mpegts.js كرابط شبكة عادي — وهذه الاستدعاءات لا يمكنها
-// إرفاق أي Authorization header. لو بقيت الفانكشن تتطلب JWT (الإعداد الافتراضي في Supabase)، فكل طلب لها
-// سيُرفض بخطأ 401 من بوابة Supabase قبل ما يوصل لكود الفانكشن أصلاً — وهذا هو السبب الأرجح لعدم عمل أي
-// رابط Xtream/IPTV (أو أي رابط http) إطلاقًا، بغض النظر عن امتداده. راجع ملف supabase/config.toml المرفق.
+// ⚠️ مهم جدًا: هذه الفانكشن لازم تُنشر بدون التحقق من JWT (verify_jwt = false)، راجع supabase/config.toml
+//
+// ⚠️ ملاحظة أساسية (إصلاح مهم): تحديد "هل الرد مانيفست m3u8 أو لا" لا يعتمد على امتداد الرابط أو ترويسة
+// Content-Type فقط بعد الآن — كثير من روابط Xtream/IPTV تُعيد توجيه (redirect) لرابط CDN موقّع رقميًا
+// بلا امتداد m3u8 وبلا ترويسة صحيحة، فكان القسم القديم يفوّت اكتشافها ويمرّرها كبيانات ثنائية خام دون
+// إعادة كتابة روابطها الداخلية، فتنكسر القائمة بالكامل. الحل: نتحقق من أول بايتات الرد الفعلية (نقرأ أول
+// جزء فقط، لا الرد كامل، حفاظًا على التدفق الحقيقي بلا تجميع للمقاطع الكبيرة) ونبحث عن توقيع "#EXTM3U".
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +36,6 @@ Deno.serve(async (req: Request) => {
     return new Response("Invalid target url", { status: 400, headers: CORS_HEADERS });
   }
 
-  // بعض بورتالات Xtream/IPTV ترفض المتصفحات العادية وتطلب user-agent مألوف مثل VLC
   let upstream: Response;
   try {
     upstream = await fetch(targetUrl.toString(), {
@@ -56,16 +57,37 @@ Deno.serve(async (req: Request) => {
   }
 
   const contentType = upstream.headers.get("content-type") || "";
-  const isManifest =
-    /\.m3u8?(\?|$)/i.test(targetUrl.pathname) ||
-    contentType.includes("mpegurl") ||
-    contentType.includes("m3u") ||
-    contentType.includes("x-mpegURL");
-
   const proxyBase = `${reqUrl.origin}${reqUrl.pathname}`;
 
+  // نقرأ أول جزء فقط من الرد (لا الرد كامل) لنتحقق فعليًا هل هو نص مانيفست HLS أم بيانات ثنائية —
+  // هذا أدق من الاعتماد على الامتداد/الترويسة فقط، وما يزال يحافظ على التدفق الحقيقي للمقاطع الكبيرة
+  const reader = upstream.body?.getReader();
+  if (!reader) {
+    return new Response("Upstream body unavailable", { status: 502, headers: CORS_HEADERS });
+  }
+  const { value: firstChunk, done: firstDone } = await reader.read();
+  const headSnippet = firstChunk
+    ? new TextDecoder("utf-8", { fatal: false }).decode(firstChunk.slice(0, 64))
+    : "";
+  const isManifest = headSnippet.trimStart().startsWith("#EXTM3U");
+
   if (isManifest) {
-    const text = await upstream.text();
+    // مانيفست: نص صغير دومًا، نقرأ بقية الرد كاملاً (لا مشكلة تجميعه، حجمه ضئيل) ونعيد كتابة روابطه
+    const chunks: Uint8Array[] = firstChunk ? [firstChunk] : [];
+    if (!firstDone) {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+    }
+    let totalLen = 0;
+    for (const c of chunks) totalLen += c.length;
+    const combined = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const c of chunks) { combined.set(c, offset); offset += c.length; }
+    const text = new TextDecoder("utf-8").decode(combined);
+
     const rewritten = text
       .split("\n")
       .map((line) => {
@@ -101,16 +123,26 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // مقطع فيديو/صوت، أو تدفق MPEG-TS خام مستمر، أو أي محتوى آخر (مثل مفتاح تشفير .key):
-  // يُمرَّر بايت لبايت مباشرة دون تجميعه بالكامل بالذاكرة أولاً (upstream.body هو ReadableStream حقيقي)،
-  // وهذا ما يسمح بتشغيل تدفقات مباشرة مستمرة (Live) بدل انتظار انتهائها (وهي لا تنتهي أصلاً).
-  //
-  // ⚠️ حد معروف: منصات الاستضافة بدون خادم (Supabase Edge Functions/Deno Deploy) تفرض عادة سقفًا زمنيًا
-  // لتنفيذ الطلب الواحد (غالبًا حوالي 150 ثانية). تدفق TS خام مستمر (بلا m3u8) يبقيه هذا الاتصال مفتوحًا
-  // لأطول من ذلك سيُقطع من طرف المنصة، فيحتاج المشغل في الواجهة إعادة فتح الاتصال (هذا مطبّق فعليًا في
-  // كود المشغل عبر إعادة محاولة تلقائية عند انقطاع mpegts.js). لبث مباشر طويل بدون انقطاعات متكررة، يُفضّل
-  // اعتماد روابط HLS (m3u8) من مزوّد الخدمة كلما أمكن، لأنها تُجزّأ لطلبات قصيرة لا تصطدم بهذا السقف الزمني.
-  return new Response(upstream.body, {
+  // مقطع فيديو/صوت، أو تدفق MPEG-TS خام مستمر، أو أي محتوى آخر: يُمرَّر كتدفق حقيقي (لا يُجمَّع بالذاكرة)،
+  // مع إعادة دمج أول جزء قرأناه بالمقدمة قبل باقي التدفق حتى لا نفقد أي بايت منه
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      if (firstChunk) controller.enqueue(firstChunk);
+      if (!firstDone) {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+      }
+      controller.close();
+    },
+    cancel() {
+      try { reader.cancel(); } catch (_e) { /* ignore */ }
+    },
+  });
+
+  return new Response(stream, {
     headers: {
       ...CORS_HEADERS,
       "Content-Type": contentType || "video/mp2t",
