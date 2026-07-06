@@ -143,3 +143,14 @@ create policy "public read app_settings" on public.app_settings for select using
 drop policy if exists "auth write app_settings" on public.app_settings;
 create policy "auth write app_settings" on public.app_settings for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- ============================================================
+--  شريط إخباري متحرك (ticker) يظهر بالمساحة الآمنة أعلى الصفحة في وضع الفول سكرين بتيليجرام
+-- ============================================================
+alter table public.app_settings add column if not exists ticker_text text default '';
+
+-- ============================================================
+--  رابط قناة تيليجرام الخاصة بكل نادٍ (تظهر أسفل صفحة المباراة)
+-- ============================================================
+alter table public.club_settings add column if not exists telegram_link  text default '';
+alter table public.club_settings add column if not exists telegram_label text default 'قناة النادي على تيليجرام';
