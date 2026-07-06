@@ -35,7 +35,7 @@
   --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
 }
 body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
-#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--tg-safe-top);min-height:0;overflow:hidden;
+#tickerBar{position:fixed;top:0;left:0;right:0;height:min(var(--tg-safe-top),34px);min-height:0;overflow:hidden;
   background:var(--acc);z-index:10000;display:flex;align-items:center;}
 #tickerBar.hide{display:none;}
 #tickerText{position:absolute;white-space:nowrap;font-size:11px;font-weight:800;color:#fff;
@@ -469,7 +469,7 @@ const IS_TG = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.We
 
 /* ============== الحالة ============== */
 const CLUB_NAMES = { milan:'ميلان', barca:'برشلونة' };
-let state = { club:null, matches:[], finished:[], currentMatch:null, sources:[], related:[], currentTab:'live', currentSource:null };
+let state = { club:null, matches:[], finished:[], currentMatch:null, sources:[], related:[], currentTab:'live', currentSource:null, barcaHubCards:null };
 
 /* ============== شعارات شاشة اختيار النادي ============== */
 async function loadPickerLogos(){
@@ -521,13 +521,40 @@ function show(id){
 async function openClub(club){
   state.club = club;
   document.body.setAttribute('data-club', club);
+  loadClubLogo(club);
+  if (club === 'barca'){
+    await renderBarcaHub();
+    return;
+  }
   document.getElementById('homeTitle').textContent = CLUB_NAMES[club];
   document.getElementById('homeCrest').outerHTML = crestImg(club,30,'homeCrest');
   document.getElementById('finCrest').outerHTML = crestImg(club,30,'finCrest');
   show('screenHome');
   showTab('home');
-  loadClubLogo(club);
   await loadHome();
+}
+// تصميم مخصص لصفحة برشلونة: المشغل أعلى الصفحة مباشرة، السيرفرات تحته، وتحتها بطاقتا "سابقة/قادمة"
+// (أو "مباشر/سابقة" لو فيه مباراة مباشرة الآن)، وتحتهما قناة تيليجرام الخاصة بالنادي
+async function renderBarcaHub(){
+  state.barcaHubCards = null;
+  const { data } = await sb.from('matches').select('*').eq('club','barca').order('kickoff_at',{ascending:false});
+  const matches = data || [];
+  const live = matches.find(m=>m.status==='live');
+  const previous = matches.filter(m=>m.status==='finished')
+    .sort((a,b)=> new Date(b.kickoff_at||0) - new Date(a.kickoff_at||0))[0];
+  const upcoming = matches.filter(m=>m.status==='upcoming')
+    .sort((a,b)=> new Date(a.kickoff_at||0) - new Date(b.kickoff_at||0))[0];
+  const cards = (live ? [live, previous] : [previous, upcoming]).filter(Boolean);
+  state.barcaHubCards = cards;
+  if (!cards.length){
+    show('screenPlayer');
+    document.getElementById('playerTitle').textContent = 'برشلونة';
+    resetPlayerUI();
+    showPlaceholder('لا توجد مباريات مضافة حالياً لبرشلونة', false);
+    document.getElementById('belowPlayer').innerHTML = '';
+    return;
+  }
+  await openPlayer(cards[0].id);
 }
 async function loadClubLogo(club){
   const { data } = await sb.from('club_settings').select('*').eq('club', club).single();
@@ -846,6 +873,11 @@ function renderBelowPlayer(){
 
   document.getElementById('belowPlayer').innerHTML = html;
   setServersButtonVisibility();
+  if (state.club === 'barca' && state.barcaHubCards && state.barcaHubCards.length){
+    document.getElementById('belowPlayer').insertAdjacentHTML('beforeend', `
+      <div class="sec-title">مباريات برشلونة</div>
+      <div class="related-scroll">${state.barcaHubCards.map(matchCard).join('')}</div>`);
+  }
   const tg = state.clubTelegram;
   if (tg && tg.link){
     document.getElementById('belowPlayer').insertAdjacentHTML('beforeend', `
@@ -871,6 +903,7 @@ function pickSource(i, el){
 }
 function closePlayer(){
   destroyPlayer();
+  if (state.club === 'barca'){ show('screenClubs'); return; }
   showTab('home');
 }
 
@@ -1622,4 +1655,3 @@ function exitFS(){
 </script>
 </body>
 </html>
-
