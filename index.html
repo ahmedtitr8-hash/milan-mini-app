@@ -1002,7 +1002,11 @@ function destroyPlayer(){
   if (existingIframe) existingIframe.remove();
   video().classList.remove('hide');
   document.getElementById('ctrlLayer').classList.remove('hide');
-  ['btnBarPlay','btnCenterPlay','btnMute','seekRow','btnBack10','btnFwd10'].forEach(id=>{
+  document.getElementById('ctrlLayer').style.opacity = '';
+  document.getElementById('ctrlLayer').style.pointerEvents = '';
+  const fsBtn = document.getElementById('btnFS');
+  if (fsBtn) fsBtn.style.pointerEvents = '';
+  ['btnBarPlay','btnCenterPlay','btnMute','seekRow','btnBack10','btnFwd10','btnAspect','btnServers'].forEach(id=>{
     const el = document.getElementById(id);
     if (el) el.style.display = '';
   });
@@ -1166,11 +1170,17 @@ function tryEmbedFallback(url){
 function showEmbed(url){
   hidePlaceholder();
   video().classList.add('hide');
-  // نبقي طبقة أزرارنا ظاهرة (الفول سكرين، الأبعاد، السيرفرات) لأنها تتحكم بصندوق المشغل نفسه (يبقى يحوي
-  // الإطار المضمّن بداخله فتعمل بشكل طبيعي)، ونخفي فقط أزرار التحكم المباشر بالفيديو (تشغيل/صوت/تقديم)
-  // لأننا فعليًا لا نقدر نتحكم بمحتوى داخل iframe من موقع/مصدر آخر (قيد أمان متصفح، ليس نقص بكودنا)
+  // في وضع iframe: التبويب لا يستطيع أبدًا اكتشاف نقرات المستخدم داخل الإطار (قيد أمان متصفح صارم بين
+  // المواقع المختلفة)، فآلية "اختفاء الأزرار بعد فترة ثم إعادة ظهورها بالنقر" غير ممكنة هنا إطلاقًا —
+  // لأن النقر نفسه يذهب لصفحة المصدر الخارجي مباشرة، لا يصل لكودنا أبدًا. الحل: نُبقي فقط زر الفول سكرين
+  // ظاهرًا بشكل دائم وثابت (بلا اختفاء)، ونخفي باقي الأزرار (الأبعاد/السيرفرات) لتقليل الازدحام البصري
+  document.getElementById('playerWrap').classList.add('show');
+  clearTimeout(ctrlTimer);
   document.getElementById('ctrlLayer').classList.remove('hide');
-  ['btnBarPlay','btnCenterPlay','btnMute','seekRow','btnBack10','btnFwd10'].forEach(id=>{
+  document.getElementById('ctrlLayer').style.opacity = '1';
+  document.getElementById('ctrlLayer').style.pointerEvents = 'none'; // يمنع أي طبقة شفافة تحجب النقر على iframe
+  document.getElementById('btnFS').style.pointerEvents = 'all'; // إلا زر الفول سكرين نفسه يبقى قابل للنقر
+  ['btnBarPlay','btnCenterPlay','btnMute','seekRow','btnBack10','btnFwd10','btnAspect','btnServers'].forEach(id=>{
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1633,4 +1643,3 @@ function exitFS(){
 </script>
 </body>
 </html>
-
