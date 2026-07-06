@@ -1002,6 +1002,10 @@ function destroyPlayer(){
   if (existingIframe) existingIframe.remove();
   video().classList.remove('hide');
   document.getElementById('ctrlLayer').classList.remove('hide');
+  ['btnBarPlay','btnCenterPlay','btnMute','seekRow','btnBack10','btnFwd10'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
 }
 // يوقف محركات التشغيل الحالية فقط، دون لمس واجهة الـ placeholder (تُستخدم بين محاولة ومحاولة داخل السلسلة)
 function stopEngines(){
@@ -1162,7 +1166,14 @@ function tryEmbedFallback(url){
 function showEmbed(url){
   hidePlaceholder();
   video().classList.add('hide');
-  document.getElementById('ctrlLayer').classList.add('hide');
+  // نبقي طبقة أزرارنا ظاهرة (الفول سكرين، الأبعاد، السيرفرات) لأنها تتحكم بصندوق المشغل نفسه (يبقى يحوي
+  // الإطار المضمّن بداخله فتعمل بشكل طبيعي)، ونخفي فقط أزرار التحكم المباشر بالفيديو (تشغيل/صوت/تقديم)
+  // لأننا فعليًا لا نقدر نتحكم بمحتوى داخل iframe من موقع/مصدر آخر (قيد أمان متصفح، ليس نقص بكودنا)
+  document.getElementById('ctrlLayer').classList.remove('hide');
+  ['btnBarPlay','btnCenterPlay','btnMute','seekRow','btnBack10','btnFwd10'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   const f = document.createElement('iframe');
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
