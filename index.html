@@ -483,11 +483,13 @@ try{
     // شريط تيليجرام العلوي (الذي يحوي زر الإغلاق/السهم/القائمة) عنصر تحكمه تيليجرام نفسه من خارج صفحتنا
     // تمامًا (ليس جزءًا من DOM صفحتنا)، فلا يمكننا تغيير حدوده أو حجمه — أقصى ما يمكن التحكم به هو لونه،
     // فنُزامنه دائمًا مع لون النادي الحالي (var(--acc)) حتى يبدو موحّدًا مع باقي الواجهة
+    // مهم: نستخدم setHeaderColor فقط (يلوّن شريط تيليجرام العلوي الرفيع حصرًا بحدوده هو) —
+    // ولا نستخدم setBackgroundColor لأنها تلوّن خلفية التطبيق كاملة (مساحة أكبر بكثير من الشريط
+    // المطلوب)، وهذا بالضبط ما كان يجعل اللون "يفيض" فوق الحدود المطلوبة بدل الانحصار بالشريط فقط
     window.syncTgHeaderColor = function(){
       try{
         const acc = getComputedStyle(document.body).getPropertyValue('--acc').trim() || '#000000';
         if (typeof Telegram.WebApp.setHeaderColor === 'function') Telegram.WebApp.setHeaderColor(acc);
-        if (typeof Telegram.WebApp.setBackgroundColor === 'function') Telegram.WebApp.setBackgroundColor(acc);
       }catch(e){}
     };
     window.syncTgHeaderColor();
