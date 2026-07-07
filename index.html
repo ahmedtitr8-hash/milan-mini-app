@@ -34,12 +34,14 @@
 :root{
   --acc:#E87B00; --acc2:#FF9520;
   --bg:#070707; --card:#141414; --card2:#1c1c1c; --border:#262626;
-  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px; --ticker-h:0px;
+  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
 }
 body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
-#tickerBar{position:relative;width:100%;flex-shrink:0;height:var(--ticker-h);overflow:hidden;
-  background:#000;display:flex;align-items:center;}
-#tickerBar.hide{display:none;}
+#app{padding-top:var(--tg-safe-top);}
+body.no-ticker #app{padding-top:0;}
+#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--tg-safe-top);overflow:hidden;
+  background:#000;z-index:10000;display:flex;align-items:center;}
+body.no-ticker #tickerBar{display:none;}
 #tickerText{position:absolute;white-space:nowrap;font-size:11px;font-weight:800;color:#fff;
   animation:ticker-scroll 14s linear infinite;}
 @keyframes ticker-scroll{from{transform:translateX(-100%);}to{transform:translateX(100vw);}}
@@ -77,7 +79,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 .club-sub{font-size:11px;color:var(--mute);}
 
 /* ===== هيدر الأندية ===== */
-.top-bar{display:flex;align-items:center;gap:10px;padding:calc(14px + min(var(--tg-safe-top),16px)) 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
+.top-bar{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
 .icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .icon-btn svg{width:19px;height:19px;fill:#fff;}
 .top-crest{height:28px;width:auto;max-width:64px;object-fit:contain;flex-shrink:0;}
@@ -269,7 +271,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
 </style>
 </head>
 <body>
-<div id="tickerBar" class="hide"><div id="tickerText"></div></div>
+<div id="tickerBar"><div id="tickerText"></div></div>
 <div id="app">
 
   <!-- شاشة اختيار النادي -->
@@ -534,26 +536,16 @@ async function loadAppSettings(){
     }
     if (data.ticker_text){
       document.getElementById('tickerText').textContent = data.ticker_text;
-      document.getElementById('tickerBar').classList.remove('hide');
-      document.documentElement.style.setProperty('--ticker-h', '32px');
-    } else {
-      document.documentElement.style.setProperty('--ticker-h', '0px');
     }
   }catch(e){}
 }
 loadAppSettings();
 function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
-  const scr = document.getElementById(id);
-  scr.classList.add('on');
-  // شريط الـticker يظهر بس بصفحات النادي (ميلان/برشلونة)، مباشرة تحت صف ZONE/العنوان
-  const ticker = document.getElementById('tickerBar');
-  const topBar = scr.querySelector('.top-bar');
-  if (id !== 'screenClubs' && topBar){
-    topBar.insertAdjacentElement('afterend', ticker);
-  } else if (ticker.parentElement){
-    ticker.parentElement.removeChild(ticker);
-  }
+  document.getElementById(id).classList.add('on');
+  // الشريط (والمساحة المحجوزة خلف أزرار تيليجرام العائمة بوضع الفول سكرين) يظهر بكل الصفحات
+  // ما عدا صفحة اختيار النادي
+  document.body.classList.toggle('no-ticker', id === 'screenClubs');
 }
 async function openClub(club){
   state.club = club;
