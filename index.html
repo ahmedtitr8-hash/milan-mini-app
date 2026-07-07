@@ -580,9 +580,8 @@ async function loadBarcaMatch(matchId){
   const { data:m } = await sb.from('matches').select('*').eq('id', matchId).single();
   if (!m) return;
   state.currentMatch = m;
-  document.getElementById('playerTitle').textContent = (m.home_team || m.away_team)
-    ? `${m.home_team||''} ${m.away_team?('- '+m.away_team):''}`
-    : (m.title || 'برشلونة');
+  // العنوان يبقى ثابتًا باسم النادي دائمًا (هذي صفحة نادٍ وليست صفحة مباراة منفردة)
+  document.getElementById('playerTitle').textContent = 'برشلونة';
   const { data:sources } = await sb.from('match_sources').select('*').eq('match_id', matchId).order('sort_order');
   state.sources = sources || [];
   state.related = [];
@@ -664,10 +663,6 @@ function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':
 function hubMatchCard(m){
   const active = state.currentMatch && state.currentMatch.id === m.id;
   return `<div class="hub-card ${active?'active':''}" onclick="loadBarcaMatch('${m.id}')">
-    ${(m.round || m.competition) ? `<div class="hub-card-top">
-      ${m.competition?`<span class="hub-comp">${escapeHtml(m.competition)}</span>`:''}
-      ${m.round?`<span class="hub-badge">${escapeHtml(String(m.round))}</span>`:''}
-    </div>` : ''}
     <div class="hub-teams">
       <div class="hub-team"><div class="hub-logo"><img src="${m.home_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.home_team||'')}</span></div>
       <div class="hub-time"><span class="hub-t">${fmtTimeOnly(m.kickoff_at)}</span><span class="hub-d">${fmtDateOnly(m.kickoff_at)}</span></div>
