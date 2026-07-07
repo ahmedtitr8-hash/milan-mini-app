@@ -559,20 +559,23 @@ async function renderBarcaHub(){
   document.getElementById('playerTitle').textContent = 'برشلونة';
   resetPlayerUI();
   document.getElementById('belowPlayer').innerHTML = '';
-  const { data } = await sb.from('matches').select('*').eq('club','barca').order('kickoff_at',{ascending:false});
+  const { data } = await sb.from('matches').select('*').eq('club','barca');
   const matches = data || [];
-  const live = matches.find(m=>m.status==='live');
-  const previous = matches.filter(m=>m.status==='finished')
-    .sort((a,b)=> new Date(b.kickoff_at||0) - new Date(a.kickoff_at||0))[0];
-  const upcoming = matches.filter(m=>m.status==='upcoming')
-    .sort((a,b)=> new Date(a.kickoff_at||0) - new Date(b.kickoff_at||0))[0];
-  const cards = (live ? [live, previous] : [previous, upcoming]).filter(Boolean);
-  state.barcaHubCards = cards;
-  if (!cards.length){
+  if (!matches.length){
     showPlaceholder('لا توجد مباريات مضافة حالياً لبرشلونة', false);
     return;
   }
-  await loadBarcaMatch(cards[0].id);
+  // تُعرض كل المباريات المضافة لبرشلونة (بلا حد أقصى)، مرتّبة: المباشرة أولاً، ثم القادمة (الأقرب فالأبعد)،
+  // ثم المنتهية (الأحدث فالأقدم) — وتُفتح تلقائيًا أنسب مباراة حسب نفس الترتيب
+  const live = matches.filter(m=>m.status==='live');
+  const upcoming = matches.filter(m=>m.status==='upcoming')
+    .sort((a,b)=> new Date(a.kickoff_at||0) - new Date(b.kickoff_at||0));
+  const finished = matches.filter(m=>m.status==='finished')
+    .sort((a,b)=> new Date(b.kickoff_at||0) - new Date(a.kickoff_at||0));
+  const cards = [...live, ...upcoming, ...finished];
+  state.barcaHubCards = cards;
+  const initial = live[0] || upcoming[0] || finished[0];
+  await loadBarcaMatch(initial.id);
 }
 // تحميل مباراة داخل هَب برشلونة دون الخروج من الشاشة أو التلميح بأي "تحميل صفحة" — فقط تحديث
 // الفيديو والعنوان والسيرفرات وبطاقات المباريات في مكانها
