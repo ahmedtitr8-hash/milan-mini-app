@@ -6,13 +6,15 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-// إجبار تحميل جديد فعليًا من الشبكة (مرة واحدة كل جلسة) بدل الاعتماد على أي نسخة مخزّنة مسبقًا محليًا،
-// عبر تحميل الصفحة برابط مختلف كل مرة (معامل ?v=) — هذا يكسر الكاش بغض النظر عن مصدره (متصفح أو WebView تيليجرام)
+// إجبار تحميل جديد فعليًا من الشبكة في كل مرة (مو مرة وحدة بالجلسة) — لأن تيليجرام أحيانًا يبقي نافذة
+// الـ WebApp حيّة بالخلفية بدل ما يغلقها كليًا، فسطر "مرة وحدة بالجلسة" القديم كان يتخطى إعادة التحميل
+// ويعرض نسخة قديمة عالقة بالذاكرة. الحين: لو رابط الصفحة ما فيه باراميتر تحديث حديث (أصغر من 5 ثوانٍ)،
+// نضيفه ونعيد التحميل فورًا من الشبكة — بدون أي اعتماد على sessionStorage
 (function(){
   try{
-    if (!sessionStorage.getItem('_freshLoad')){
-      sessionStorage.setItem('_freshLoad','1');
-      var url = new URL(location.href);
+    var url = new URL(location.href);
+    var v = parseInt(url.searchParams.get('v') || '0', 10);
+    if (!v || (Date.now() - v) > 5000){
       url.searchParams.set('v', Date.now());
       location.replace(url.toString());
     }
