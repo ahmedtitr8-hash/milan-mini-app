@@ -34,10 +34,11 @@
 :root{
   --acc:#E87B00; --acc2:#FF9520;
   --bg:#070707; --card:#141414; --card2:#1c1c1c; --border:#262626;
-  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
+  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px; --ticker-h:0px;
 }
 body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
-#tickerBar{position:fixed;top:0;left:0;right:0;height:min(var(--tg-safe-top),34px);min-height:0;overflow:hidden;
+#app{padding-top:var(--ticker-h);}
+#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--ticker-h);overflow:hidden;
   background:var(--acc);z-index:10000;display:flex;align-items:center;}
 #tickerBar.hide{display:none;}
 #tickerText{position:absolute;white-space:nowrap;font-size:11px;font-weight:800;color:#fff;
@@ -535,6 +536,9 @@ async function loadAppSettings(){
     if (data.ticker_text){
       document.getElementById('tickerText').textContent = data.ticker_text;
       document.getElementById('tickerBar').classList.remove('hide');
+      document.documentElement.style.setProperty('--ticker-h', '32px');
+    } else {
+      document.documentElement.style.setProperty('--ticker-h', '0px');
     }
   }catch(e){}
 }
