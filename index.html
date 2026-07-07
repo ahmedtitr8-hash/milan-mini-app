@@ -480,6 +480,17 @@ try{
       Telegram.WebApp.onEvent('safeAreaChanged', applyTgSafeArea);
       Telegram.WebApp.onEvent('fullscreenChanged', applyTgSafeArea);
     }
+    // شريط تيليجرام العلوي (الذي يحوي زر الإغلاق/السهم/القائمة) عنصر تحكمه تيليجرام نفسه من خارج صفحتنا
+    // تمامًا (ليس جزءًا من DOM صفحتنا)، فلا يمكننا تغيير حدوده أو حجمه — أقصى ما يمكن التحكم به هو لونه،
+    // فنُزامنه دائمًا مع لون النادي الحالي (var(--acc)) حتى يبدو موحّدًا مع باقي الواجهة
+    window.syncTgHeaderColor = function(){
+      try{
+        const acc = getComputedStyle(document.body).getPropertyValue('--acc').trim() || '#000000';
+        if (typeof Telegram.WebApp.setHeaderColor === 'function') Telegram.WebApp.setHeaderColor(acc);
+        if (typeof Telegram.WebApp.setBackgroundColor === 'function') Telegram.WebApp.setBackgroundColor(acc);
+      }catch(e){}
+    };
+    window.syncTgHeaderColor();
   }
 }catch(e){}
 const IS_TG = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
@@ -538,6 +549,7 @@ function show(id){
 async function openClub(club){
   state.club = club;
   document.body.setAttribute('data-club', club);
+  if (window.syncTgHeaderColor) window.syncTgHeaderColor();
   loadClubLogo(club);
   if (club === 'barca'){
     await renderBarcaHub();
