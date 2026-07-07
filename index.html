@@ -664,7 +664,7 @@ function matchCard(m){
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // بطاقة مباراة بتصميم "الهَب" (مستخدمة لبطاقات مباريات برشلونة): شعار واسم كل نادٍ فقط، وقت المباراة
 // وتاريخها بالمنتصف، وفوق يمين البطاقة الجولة وبجانبها البطولة — بدون ناقل/ثمبنيل
-function hubMatchCenter(m){
+function barcaMatchCenter(m){
   if (m.status === 'live'){
     return `<div class="hub-time"><span class="hub-live"><span class="bdot"></span>مباشر</span></div>`;
   }
@@ -674,12 +674,12 @@ function hubMatchCenter(m){
   }
   return `<div class="hub-time"><span class="hub-t">${fmtTimeOnly(m.kickoff_at)}</span><span class="hub-d">${fmtDateOnly(m.kickoff_at)}</span></div>`;
 }
-function hubMatchCard(m){
+function barcaMatchCard(m){
   const active = state.currentMatch && state.currentMatch.id === m.id;
   return `<div class="hub-card ${active?'active':''}" onclick="loadBarcaMatch('${m.id}')">
     <div class="hub-teams">
       <div class="hub-team"><div class="hub-logo"><img src="${m.home_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.home_team||'')}</span></div>
-      ${hubMatchCenter(m)}
+      ${barcaMatchCenter(m)}
       <div class="hub-team"><div class="hub-logo"><img src="${m.away_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.away_team||'')}</span></div>
     </div>
   </div>`;
@@ -896,37 +896,39 @@ function showUpcomingState(m){
   tick();
   countdownTimer = setInterval(tick, 1000);
 }
+/* ============== صفحة نادي برشلونة: عرض مستقل بالكامل عن منطق "صفحة المباراة" ==============
+   لا تشترك هذه الدالة بأي جزء من renderBelowPlayer (الخاصة بميلان) — فقط: سيرفرات إن وُجدت،
+   ثم قائمة كل مباريات برشلونة المضافة، ثم قناة تيليجرام إن وُجدت */
+function renderBarcaBelow(){
+  let html = '';
+  const chips = currentTabSources();
+  if (chips.length){
+    html += `<div class="sec-title">سيرفرات وقنوات أخرى</div>
+      <div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('')}</div>`;
+  }
+  if (state.barcaHubCards && state.barcaHubCards.length){
+    html += `<div class="sec-title">مباريات برشلونة</div>
+      <div class="hub-list">${state.barcaHubCards.map(barcaMatchCard).join('')}</div>`;
+  }
+  document.getElementById('belowPlayer').innerHTML = html;
+  setServersButtonVisibility();
+  const tg = state.clubTelegram;
+  if (tg && tg.link){
+    document.getElementById('belowPlayer').insertAdjacentHTML('beforeend', `
+      <a href="${tg.link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;
+        margin:14px auto 4px;width:100%;max-width:280px;padding:11px 16px;border-radius:12px;
+        background:rgba(255,255,255,.06);border:1px solid var(--border);color:#fff;text-decoration:none;
+        font-size:13px;font-weight:700;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="#2AABEE"><path d="M21.5 4.5L2.7 12.2c-1.2.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.8c.2.7.5.9 1.2.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.3 1.8-.8l3.3-15.5c.4-1.4-.5-2-1.3-1.6z"/></svg>
+        <span>${escapeHtml(tg.label || 'قناة النادي على تيليجرام')}</span>
+      </a>`);
+  }
+}
 function renderBelowPlayer(){
+  // برشلونة لها منطق عرض مستقل بالكامل (صفحة نادٍ، لا صفحة مباراة) — دالتها منفصلة تمامًا هنا
+  if (state.club === 'barca'){ renderBarcaBelow(); return; }
   const m = state.currentMatch;
   let html = '';
-
-  // تصميم مخصص لهَب برشلونة: بدون صف الأندية/الجولة النصي ولا جملة "تنطلق المباراة الساعة..."،
-  // فقط السيرفرات إن وُجدت، ثم بطاقات مباريات برشلونة (تصميم hubMatchCard) للتنقل بينها بسلاسة
-  if (state.club === 'barca'){
-    const chips = currentTabSources();
-    if (chips.length){
-      html += `<div class="sec-title">سيرفرات وقنوات أخرى</div>
-        <div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('')}</div>`;
-    }
-    if (state.barcaHubCards && state.barcaHubCards.length){
-      html += `<div class="sec-title">مباريات برشلونة</div>
-        <div class="hub-list">${state.barcaHubCards.map(hubMatchCard).join('')}</div>`;
-    }
-    document.getElementById('belowPlayer').innerHTML = html;
-    setServersButtonVisibility();
-    const tg = state.clubTelegram;
-    if (tg && tg.link){
-      document.getElementById('belowPlayer').insertAdjacentHTML('beforeend', `
-        <a href="${tg.link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;
-          margin:14px auto 4px;width:100%;max-width:280px;padding:11px 16px;border-radius:12px;
-          background:rgba(255,255,255,.06);border:1px solid var(--border);color:#fff;text-decoration:none;
-          font-size:13px;font-weight:700;justify-content:center;">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="#2AABEE"><path d="M21.5 4.5L2.7 12.2c-1.2.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.8c.2.7.5.9 1.2.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.3 1.8-.8l3.3-15.5c.4-1.4-.5-2-1.3-1.6z"/></svg>
-          <span>${escapeHtml(tg.label || 'قناة النادي على تيليجرام')}</span>
-        </a>`);
-    }
-    return;
-  }
 
   if (m.type==='vod'){
     html += `<div class="tabs-row">
