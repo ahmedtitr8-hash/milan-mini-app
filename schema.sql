@@ -27,11 +27,16 @@ create table if not exists public.matches (
   -- نص حر يتحكم به الأدمن يظهر للمباريات القادمة بدلاً من إجباره على إضافة رابط مشغل
   -- (مثال: القناة الناقلة، الملعب، أي ملاحظة يريد عرضها قبل انطلاق المباراة)
   upcoming_note  text default '',
+  -- النتيجة النهائية (تُعرض بدل الوقت/التاريخ على البطاقة عندما تكون حالة المباراة "منتهية")
+  home_score     int,
+  away_score     int,
   created_at     timestamptz default now()
 );
 
 -- ترقية قاعدة بيانات قديمة كانت موجودة قبل هذا التحديث
 alter table public.matches add column if not exists upcoming_note text default '';
+alter table public.matches add column if not exists home_score int;
+alter table public.matches add column if not exists away_score int;
 
 -- ---------- روابط المشاهدة (سيرفرات بث / كاملة / ملخص) ----------
 create table if not exists public.match_sources (

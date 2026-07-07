@@ -260,6 +260,14 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
       <div class="field"><label>نص يظهر للمستخدم</label><textarea id="f_upcoming_note" rows="3" placeholder="مثال: تُعرض المباراة حصريًا على قناة SSC 1 يوم الجمعة"></textarea></div>
     </div>
 
+    <div class="form-section" id="finishedSection">
+      <h4>النتيجة النهائية</h4>
+      <div class="row2">
+        <div class="field"><label>أهداف الفريق المستضيف</label><input type="number" id="f_home_score" min="0"></div>
+        <div class="field"><label>أهداف الفريق الضيف</label><input type="number" id="f_away_score" min="0"></div>
+      </div>
+    </div>
+
     <div class="form-section" id="sourcesSection">
       <h4 id="sourcesTitle">السيرفرات</h4>
             <div class="sub-list" id="sourcesList"></div>
@@ -478,6 +486,8 @@ function openMatchModal(id){
   document.getElementById('f_sort').value = m?.sort_order || 0;
   document.getElementById('f_banner').checked = !!m?.is_banner;
   document.getElementById('f_upcoming_note').value = m?.upcoming_note || '';
+  document.getElementById('f_home_score').value = (m?.home_score ?? '');
+  document.getElementById('f_away_score').value = (m?.away_score ?? '');
   updateThumbPreview();
 
   updateTypeSections();
@@ -513,6 +523,7 @@ function updateTypeSections(){
 function updateStatusSections(){
   const status = document.getElementById('f_status').value;
   document.getElementById('upcomingSection').classList.toggle('hide', status!=='upcoming');
+  document.getElementById('finishedSection').classList.toggle('hide', status!=='finished');
 }
 
 /* ===== سيرفرات المباراة ===== */
@@ -611,7 +622,9 @@ async function saveMatch(){
     category_order: parseInt(val('f_catorder'))||0,
     sort_order: parseInt(val('f_sort'))||0,
     is_banner: document.getElementById('f_banner').checked,
-    upcoming_note: val('f_upcoming_note')
+    upcoming_note: val('f_upcoming_note'),
+    home_score: val('f_home_score') !== '' ? parseInt(val('f_home_score')) : null,
+    away_score: val('f_away_score') !== '' ? parseInt(val('f_away_score')) : null
   };
 
   let matchId = editingId;

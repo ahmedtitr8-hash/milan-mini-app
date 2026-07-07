@@ -263,6 +263,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:n
 .hub-time{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 8px;}
 .hub-t{font-size:15px;font-weight:900;color:var(--acc);}
 .hub-d{font-size:10px;color:var(--mute);}
+.hub-live{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:900;color:var(--live);white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -660,12 +661,22 @@ function matchCard(m){
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // بطاقة مباراة بتصميم "الهَب" (مستخدمة لبطاقات مباريات برشلونة): شعار واسم كل نادٍ فقط، وقت المباراة
 // وتاريخها بالمنتصف، وفوق يمين البطاقة الجولة وبجانبها البطولة — بدون ناقل/ثمبنيل
+function hubMatchCenter(m){
+  if (m.status === 'live'){
+    return `<div class="hub-time"><span class="hub-live"><span class="bdot"></span>مباشر</span></div>`;
+  }
+  if (m.status === 'finished'){
+    const hasScore = m.home_score !== null && m.home_score !== undefined && m.away_score !== null && m.away_score !== undefined;
+    return `<div class="hub-time">${hasScore ? `<span class="hub-t">${m.home_score} - ${m.away_score}</span>` : ''}<span class="hub-d">انتهت</span></div>`;
+  }
+  return `<div class="hub-time"><span class="hub-t">${fmtTimeOnly(m.kickoff_at)}</span><span class="hub-d">${fmtDateOnly(m.kickoff_at)}</span></div>`;
+}
 function hubMatchCard(m){
   const active = state.currentMatch && state.currentMatch.id === m.id;
   return `<div class="hub-card ${active?'active':''}" onclick="loadBarcaMatch('${m.id}')">
     <div class="hub-teams">
       <div class="hub-team"><div class="hub-logo"><img src="${m.home_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.home_team||'')}</span></div>
-      <div class="hub-time"><span class="hub-t">${fmtTimeOnly(m.kickoff_at)}</span><span class="hub-d">${fmtDateOnly(m.kickoff_at)}</span></div>
+      ${hubMatchCenter(m)}
       <div class="hub-team"><div class="hub-logo"><img src="${m.away_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.away_team||'')}</span></div>
     </div>
   </div>`;
