@@ -546,12 +546,9 @@ function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
   const scr = document.getElementById(id);
   scr.classList.add('on');
-  // نضع شريط الـticker داخل الشاشة الظاهرة حاليًا، مباشرة بعد صف ZONE/العنوان (.top-bar) — بالتالي
-  // يظهر تحت هذا الصف بالضبط ضمن تدفق الصفحة الطبيعي، لا كطبقة عائمة فوق كل شي
+  // شريط الـticker يظهر أول شي بالصفحة (فوق صف ZONE/العنوان)، داخل الشاشة الظاهرة حاليًا
   const ticker = document.getElementById('tickerBar');
-  const topBar = scr.querySelector('.top-bar');
-  if (topBar) topBar.insertAdjacentElement('afterend', ticker);
-  else scr.insertAdjacentElement('afterbegin', ticker);
+  scr.insertAdjacentElement('afterbegin', ticker);
 }
 async function openClub(club){
   state.club = club;
