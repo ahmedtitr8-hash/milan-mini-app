@@ -483,16 +483,7 @@ try{
     // شريط تيليجرام العلوي (الذي يحوي زر الإغلاق/السهم/القائمة) عنصر تحكمه تيليجرام نفسه من خارج صفحتنا
     // تمامًا (ليس جزءًا من DOM صفحتنا)، فلا يمكننا تغيير حدوده أو حجمه — أقصى ما يمكن التحكم به هو لونه،
     // فنُزامنه دائمًا مع لون النادي الحالي (var(--acc)) حتى يبدو موحّدًا مع باقي الواجهة
-    // مهم: نستخدم setHeaderColor فقط (يلوّن شريط تيليجرام العلوي الرفيع حصرًا بحدوده هو) —
-    // ولا نستخدم setBackgroundColor لأنها تلوّن خلفية التطبيق كاملة (مساحة أكبر بكثير من الشريط
-    // المطلوب)، وهذا بالضبط ما كان يجعل اللون "يفيض" فوق الحدود المطلوبة بدل الانحصار بالشريط فقط
-    window.syncTgHeaderColor = function(){
-      try{
-        const acc = getComputedStyle(document.body).getPropertyValue('--acc').trim() || '#000000';
-        if (typeof Telegram.WebApp.setHeaderColor === 'function') Telegram.WebApp.setHeaderColor(acc);
-      }catch(e){}
-    };
-    window.syncTgHeaderColor();
+    // تم التراجع عن تلوين شريط تيليجرام العلوي بناءً على طلبك — يبقى بلونه الافتراضي (بدون أي تدخل من كودنا)
   }
 }catch(e){}
 const IS_TG = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData);
@@ -551,7 +542,6 @@ function show(id){
 async function openClub(club){
   state.club = club;
   document.body.setAttribute('data-club', club);
-  if (window.syncTgHeaderColor) window.syncTgHeaderColor();
   loadClubLogo(club);
   if (club === 'barca'){
     await renderBarcaHub();
