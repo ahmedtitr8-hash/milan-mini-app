@@ -546,10 +546,11 @@ function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
   const scr = document.getElementById(id);
   scr.classList.add('on');
-  // شريط الـticker يظهر بس بصفحات النادي (ميلان/برشلونة)، وليس بصفحة اختيار النادي
+  // شريط الـticker يظهر بس بصفحات النادي (ميلان/برشلونة)، مباشرة تحت صف ZONE/العنوان
   const ticker = document.getElementById('tickerBar');
-  if (id !== 'screenClubs'){
-    scr.insertAdjacentElement('afterbegin', ticker);
+  const topBar = scr.querySelector('.top-bar');
+  if (id !== 'screenClubs' && topBar){
+    topBar.insertAdjacentElement('afterend', ticker);
   } else if (ticker.parentElement){
     ticker.parentElement.removeChild(ticker);
   }
