@@ -37,9 +37,8 @@
   --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px; --ticker-h:0px;
 }
 body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
-#app{padding-top:var(--ticker-h);}
-#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--ticker-h);overflow:hidden;
-  background:#000;z-index:10000;display:flex;align-items:center;}
+#tickerBar{position:relative;width:100%;flex-shrink:0;height:var(--ticker-h);overflow:hidden;
+  background:#000;display:flex;align-items:center;}
 #tickerBar.hide{display:none;}
 #tickerText{position:absolute;white-space:nowrap;font-size:11px;font-weight:800;color:#fff;
   animation:ticker-scroll 14s linear infinite;}
@@ -213,7 +212,7 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
    على أي واجهة فول سكرين واحدة بعينها — لأن بعضها (مثل فول سكرين تيليجرام نفسه) يخفي الشريط العلوي
    فقط ولا يكبّر عنصر الفيديو تلقائيًا، فنحتاج نكبّره نحن بأنفسنا دائمًا بغض النظر عن الطريقة الناجحة */
 body.fs-lock{overflow:hidden!important;}
-body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player{display:none!important;}
+body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-lock #tickerBar{display:none!important;}
 /* فول سكرين: تدوير بصري بـ CSS بحت لعرض الفيديو أفقيًا داخل شاشة الجهاز العمودية (هذا لا يُدوّر الجهاز
    فعليًا؛ فقط يعرض صندوق المشغل نفسه أفقيًا بصريًا)، مع ملاحظة أن الصندوق يدور كوحدة واحدة متكاملة بكل
    ما فيه (الفيديو + كل الأزرار)، فتبقى مواقع الأزرار صحيحة ومتسقة نسبةً لبعضها بعد التدوير دون أي تفرّق */
@@ -545,7 +544,14 @@ async function loadAppSettings(){
 loadAppSettings();
 function show(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
-  document.getElementById(id).classList.add('on');
+  const scr = document.getElementById(id);
+  scr.classList.add('on');
+  // نضع شريط الـticker داخل الشاشة الظاهرة حاليًا، مباشرة بعد صف ZONE/العنوان (.top-bar) — بالتالي
+  // يظهر تحت هذا الصف بالضبط ضمن تدفق الصفحة الطبيعي، لا كطبقة عائمة فوق كل شي
+  const ticker = document.getElementById('tickerBar');
+  const topBar = scr.querySelector('.top-bar');
+  if (topBar) topBar.insertAdjacentElement('afterend', ticker);
+  else scr.insertAdjacentElement('afterbegin', ticker);
 }
 async function openClub(club){
   state.club = club;
