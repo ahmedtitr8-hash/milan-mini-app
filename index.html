@@ -77,7 +77,8 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 
 /* ===== هيدر الأندية ===== */
 .top-bar{display:flex;align-items:center;gap:10px;padding:calc(14px + var(--tg-safe-top)) 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
-.embed-toolbar{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;gap:6px;}
+.embed-toolbar{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;gap:6px;transition:opacity .4s;}
+.embed-toolbar.dim{opacity:.35;}
 .embed-toolbar:not(.hide){display:flex;}
 .embed-toolbar button{width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,.6);border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .embed-toolbar button svg{width:17px;height:17px;fill:#fff;}
@@ -391,10 +392,10 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
           <button onclick="event.stopPropagation();cycleEmbedAspect()" id="btnEmbedAspect" title="أبعاد العرض">
             <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
           </button>
-          <button onclick="event.stopPropagation();toggleFS()" id="btnEmbedFS" title="فول سكرين">
+          <button onclick="event.stopPropagation();toggleFS();armEmbedToolbarDim();" id="btnEmbedFS" title="فول سكرين">
             <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
           </button>
-          <button onclick="event.stopPropagation();exitFS()" id="btnEmbedFSClose" class="hide" title="إغلاق الفول سكرين">
+          <button onclick="event.stopPropagation();exitFS();armEmbedToolbarDim();" id="btnEmbedFSClose" class="hide" title="إغلاق الفول سكرين">
             <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           </button>
         </div>
@@ -1320,6 +1321,7 @@ function showEmbed(url){
   document.getElementById('ctrlLayer').classList.add('hide');
   document.getElementById('screenPlayer').classList.add('embed-mode');
   document.getElementById('embedToolbar').classList.remove('hide');
+  armEmbedToolbarDim();
   const f = document.createElement('iframe');
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('webkitallowfullscreen','true'); f.setAttribute('mozallowfullscreen','true');
@@ -1746,6 +1748,17 @@ let embedAspectIdx = 0;
 function cycleEmbedAspect(){
   embedAspectIdx = (embedAspectIdx + 1) % EMBED_ASPECT_CYCLE.length;
   setAspect(EMBED_ASPECT_CYCLE[embedAspectIdx]);
+  armEmbedToolbarDim();
+}
+// نظرًا لاستحالة اكتشاف نقرة المستخدم داخل الإطار (iframe) نفسه (قيد أمان المتصفح، موضّح سابقًا)،
+// ما نقدر نسوي "اختفاء عند الضغط بره/ظهور عند الضغط جوه" الطبيعي. البديل العملي: الأزرار تبدأ واضحة،
+// وتخفت تلقائيًا (لا تختفي كليًا) بعد ثوانٍ من عدم التفاعل معها هي بالذات، وترجع واضحة فور أي ضغط عليها
+let embedDimTimer = null;
+function armEmbedToolbarDim(){
+  const bar = document.getElementById('embedToolbar');
+  bar.classList.remove('dim');
+  clearTimeout(embedDimTimer);
+  embedDimTimer = setTimeout(()=>{ bar.classList.add('dim'); }, 4000);
 }
 document.getElementById('aspectMenu').querySelectorAll('[data-ar]').forEach(el=>{
   el.onclick = (e)=>{ e.stopPropagation(); setAspect(el.dataset.ar); };
