@@ -1485,6 +1485,15 @@ async function loadSource(url, source){
   state.currentSource = source || null;
   resetPlayerUI();
 
+  // حارس زمني: لو التشغيل ما بدأ خلال 15 ثانية (السيرفر متعلّق بدون رد، أو الاتصال يُرفض بصمت)، نعرض
+  // رسالة خطأ واضحة بدل ما يبقى المستخدم شايف شاشة فاضية/معلّقة للأبد بدون أي تفسير
+  clearTimeout(loadWatchdog);
+  loadWatchdog = setTimeout(()=>{
+    if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
+      showPlaceholder('السيرفر لا يستجيب (استغرق وقتًا طويلاً بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
+    }
+  }, 15000);
+
   // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
   if (url && /<iframe[\s>]/i.test(url)){
     const m = url.match(/src=["']([^"']+)["']/i);
