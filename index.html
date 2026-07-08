@@ -1046,6 +1046,10 @@ function showPlaceholder(msg, showRetry){
 let lastUrl = null;
 let lastSource = null;
 let loadWatchdog = null;
+let probeAbortCtrl = null; // يخزّن الـcontroller الخاص بآخر فحص (probeUrl) جارٍ، عشان نقدر نلغيه فورًا
+// لو المستخدم ضغط إعادة محاولة/بدّل مصدر بسرعة قبل ما يخلص — بعض السيرفرات (خصوصًا IPTV بسيشن واحد
+// مسموح) كانت تفضل "مشغولة" باتصال فحص قديم لسا ما انقفل فعليًا رغم إننا تجاهلنا نتيجته بالواجهة، وهذا
+// يفسّر "أضغط 2-3 مرات وفجأة يشتغل" — الاتصالات القديمة العالقة تتحرر تدريجيًا لين يتوفر سلوت فاضي
 function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl, lastSource); }
 
 // روابط بورتالات Xtream-Codes الشهيرة بصيغة: /live/user/pass/streamID أو /movie|series/user/pass/streamID
@@ -1144,6 +1148,7 @@ function showToastMsg(msg, ms){
 }
 function resetPlayerUI(){
   destroyPlayer();
+  if (probeAbortCtrl){ try{ probeAbortCtrl.abort(); }catch(e){} probeAbortCtrl = null; }
   showPlaceholder('جارِ تحميل البث…');
   document.getElementById('playerWrap').classList.add('show');
   clearTimeout(ctrlTimer);
@@ -1412,7 +1417,9 @@ async function runEngineChain(originalUrl, engines){
 async function probeUrl(netUrl){
   let timer;
   try{
+    if (probeAbortCtrl){ try{ probeAbortCtrl.abort(); }catch(e){} }
     const ctrl = new AbortController();
+    probeAbortCtrl = ctrl;
     timer = setTimeout(()=>ctrl.abort(), 8000);
     const res = await fetch(netUrl, { signal: ctrl.signal, cache:'no-store' });
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
