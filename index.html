@@ -1304,7 +1304,6 @@ function showEmbed(url){
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('webkitallowfullscreen','true'); f.setAttribute('mozallowfullscreen','true');
   f.setAttribute('allow','autoplay; fullscreen; encrypted-media; picture-in-picture; screen-wake-lock; accelerometer; gyroscope; clipboard-write; storage-access');
-  f.setAttribute('referrerpolicy','no-referrer-when-downgrade');
   document.getElementById('playerWrap').appendChild(f);
 }
 
