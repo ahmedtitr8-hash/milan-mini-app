@@ -1325,7 +1325,7 @@ function showEmbed(url){
   const f = document.createElement('iframe');
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('webkitallowfullscreen','true'); f.setAttribute('mozallowfullscreen','true');
-  f.setAttribute('allow','autoplay; fullscreen; encrypted-media; picture-in-picture; screen-wake-lock; accelerometer; gyroscope; clipboard-write; storage-access');
+  f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
   document.getElementById('playerWrap').appendChild(f);
 }
 
@@ -1507,20 +1507,8 @@ async function loadSource(url, source){
   const bestGuess = forcedType || extType || (m && m.type) || 'vod';
   applyTypeUI(bestGuess);
 
-  // لو الرابط m3u8 بثقة (بالامتداد أو محدَّد يدويًا)، نتجاوز أي فحص/طلب شبكة إضافي قبل التشغيل الفعلي
-  // (كان فيه قبل كذا حتى 3 طلبات منفصلة على نفس الرابط قبل التشغيل: فحص نوع البث + probeUrl + تشغيل
-  // hls.js نفسه) — كثير من سيرفرات IPTV/Xtream تسمح باتصال واحد فقط بنفس الرابط بنفس الوقت، فكانت
-  // هالطلبات الزائدة تستهلك "الاتصال المسموح" قبل ما يوصل التشغيل الفعلي، فيفشل رغم أن الرابط سليم 100%
-  const isConfidentHls = /\.m3u8?(\?|#|$)/i.test(rawUrl) || forcedType === 'hls';
-  if (isConfidentHls){
-    bindVideoEvents();
-    setupQualityMenu();
-    const engines = buildEngineList(rawUrl, netUrl, bestGuess, 'hls');
-    const ok = await runEngineChain(url, engines);
-    if (!ok && lastUrl === url){
-      showPlaceholder('تعذر تشغيل هذا الرابط رغم أنه بصيغة m3u8 صحيحة — قد يمنع السيرفر أكثر من اتصال بنفس الوقت', true);
-    }
-    return;
+  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    detectHlsType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
   }
 
   if (!forcedType && /\.mpd(\?|#|$)/i.test(rawUrl)){
