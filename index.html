@@ -77,11 +77,11 @@ button{font-family:inherit;border:none;background:none;color:inherit;cursor:poin
 
 /* ===== هيدر الأندية ===== */
 .top-bar{display:flex;align-items:center;gap:10px;padding:calc(14px + var(--tg-safe-top)) 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
-.embed-toolbar{display:none;gap:8px;justify-content:flex-end;padding:8px 14px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
+.embed-toolbar{display:none;position:absolute;top:10px;left:10px;z-index:20;gap:6px;}
 .embed-toolbar:not(.hide){display:flex;}
-.embed-toolbar button{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.08);border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.embed-toolbar button svg{width:18px;height:18px;fill:#fff;}
-body.fs-lock .embed-toolbar{position:fixed;top:0;left:0;right:0;z-index:10000;background:rgba(0,0,0,.55);border-bottom:none;}
+.embed-toolbar button{width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,.6);border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.embed-toolbar button svg{width:17px;height:17px;fill:#fff;}
+body.fs-lock .embed-toolbar{z-index:10000;}
 .icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .icon-btn svg{width:19px;height:19px;fill:#fff;}
 .top-crest{height:28px;width:auto;max-width:64px;object-fit:contain;flex-shrink:0;}
@@ -385,19 +385,19 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
       <div class="top-title" id="playerTitle">المباراة</div>
       <div class="top-zone">ZONE</div>
     </div>
-    <div class="embed-toolbar hide" id="embedToolbar">
-      <button onclick="cycleEmbedAspect()" id="btnEmbedAspect" title="أبعاد العرض">
-        <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
-      </button>
-      <button onclick="toggleFS()" id="btnEmbedFS" title="فول سكرين">
-        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-      </button>
-      <button onclick="exitFS()" id="btnEmbedFSClose" class="hide" title="إغلاق الفول سكرين">
-        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-      </button>
-    </div>
     <div class="player-scroll">
       <div id="playerWrap" onclick="onPlayerTap(event)">
+        <div class="embed-toolbar hide" id="embedToolbar">
+          <button onclick="event.stopPropagation();cycleEmbedAspect()" id="btnEmbedAspect" title="أبعاد العرض">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
+          </button>
+          <button onclick="event.stopPropagation();toggleFS()" id="btnEmbedFS" title="فول سكرين">
+            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+          </button>
+          <button onclick="event.stopPropagation();exitFS()" id="btnEmbedFSClose" class="hide" title="إغلاق الفول سكرين">
+            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
         <div id="playerPlaceholder"><div class="spinner"></div><span>جارِ تحميل البث…</span></div>
         <div id="playerToast" class="hide"></div>
         <video id="mainVideo" playsinline webkit-playsinline></video>
