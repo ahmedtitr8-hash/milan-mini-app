@@ -1196,7 +1196,7 @@ function normalizeEmbedUrl(url){
   if (m) return { embed:true, url:`https://ok.ru/videoembed/${m[1]}` };
   m = url.match(/rumble\.com\/embed\/([\w-]+)/i);
   if (m) return { embed:true, url };
-  if (/\/embed\//i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
+  if (/\/embed[-\/]/i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
     return { embed:true, url };
   }
   return { embed:false, url };
