@@ -1270,6 +1270,12 @@ function tryDash(url){
     let settled = false;
     const v = video();
     dashInst = dashjs.MediaPlayer().create();
+    // مهم: بدون هذا، dashjs يطلب المانيفست عبر البروكسي بس، لكن أي مقطع صوت/فيديو مذكور بداخله (غالبًا
+    // برابط مباشر لسيرفر المصدر) يروح له طلب مباشر بدون بروكسي، فيُرفض بسبب CORS ويطلع شاشة سوداء
+    // بدون صوت ولا صورة رغم إن المانيفست نفسه نجح يتحمّل. نمرر كل رابط (مانيفست + كل مقطع) عبر البروكسي
+    dashInst.extend('RequestModifier', function(){
+      return { modifyRequestURL: function(u){ return proxied(u); } };
+    }, true);
     dashInst.updateSettings({ streaming:{ text:{ defaultEnabled:false } } });
     dashInst.initialize(v, url, true);
     dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ if(settled)return; settled=true; hidePlaceholder(); resolve(); });
