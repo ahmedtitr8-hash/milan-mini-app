@@ -20,6 +20,12 @@ input:focus,select:focus,textarea:focus{outline:1px solid var(--acc);}
 .hide{display:none!important;}
 label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
 .field{margin-bottom:12px;}
+.logo-results{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:8px;max-height:180px;overflow-y:auto;}
+.logo-results .logo-opt{display:flex;flex-direction:column;align-items:center;gap:4px;width:64px;cursor:pointer;padding:6px;border-radius:8px;}
+.logo-results .logo-opt:hover{background:#1e1e1e;}
+.logo-results .logo-opt img{width:36px;height:36px;object-fit:contain;background:#1a1a1a;border-radius:6px;}
+.logo-results .logo-opt span{font-size:10px;color:#aaa;text-align:center;line-height:1.2;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.logo-results .logo-msg{font-size:12px;color:#888;padding:4px;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 .btn{padding:10px 18px;border-radius:9px;font-weight:800;font-size:13px;color:#fff;background:var(--acc);}
@@ -209,8 +215,24 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:5px;}
         <div class="field"><label>الفريق الضيف</label><input id="f_away_team"></div>
       </div>
       <div class="row2">
-        <div class="field"><label>شعار الفريق المستضيف</label><input id="f_home_logo"></div>
-        <div class="field"><label>شعار الفريق الضيف</label><input id="f_away_logo"></div>
+        <div class="field">
+          <label>شعار الفريق المستضيف</label>
+          <input id="f_home_logo" oninput="document.getElementById('f_home_logo_preview').src=this.value">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <img id="f_home_logo_preview" src="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;background:#1a1a1a;flex-shrink:0;" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'">
+            <button type="button" class="btn secondary small" onclick="searchClubLogo('f_home_team','f_home_logo','home_logo_results')">🔍 ابحث عن الشعار</button>
+          </div>
+          <div id="home_logo_results" class="logo-results hide"></div>
+        </div>
+        <div class="field">
+          <label>شعار الفريق الضيف</label>
+          <input id="f_away_logo" oninput="document.getElementById('f_away_logo_preview').src=this.value">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <img id="f_away_logo_preview" src="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;background:#1a1a1a;flex-shrink:0;" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'">
+            <button type="button" class="btn secondary small" onclick="searchClubLogo('f_away_team','f_away_logo','away_logo_results')">🔍 ابحث عن الشعار</button>
+          </div>
+          <div id="away_logo_results" class="logo-results hide"></div>
+        </div>
       </div>
     </div>
 
@@ -464,6 +486,45 @@ async function duplicateMatch(id){
 }
 
 /* ===== نافذة المباراة ===== */
+// يبحث عن شعار نادٍ بالاسم عبر ويكيبيديا (API عام يدعم CORS، بدون حاجة لمفتاح API) ويعرض النتائج
+// كصور مصغّرة يقدر الأدمن يضغط عليها فتتعبّى بخانة الشعار مباشرة، بدل ما يدوّر الرابط يدويًا كل مرة
+async function searchClubLogo(nameFieldId, targetFieldId, resultsId){
+  const name = (document.getElementById(nameFieldId).value || '').trim();
+  const box = document.getElementById(resultsId);
+  if (!name){
+    box.innerHTML = '<div class="logo-msg">اكتب اسم الفريق أول بالحقل اللي فوق</div>';
+    box.classList.remove('hide');
+    return;
+  }
+  box.innerHTML = '<div class="logo-msg">جارِ البحث…</div>';
+  box.classList.remove('hide');
+  try{
+    const q = encodeURIComponent(name + ' football club');
+    const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${q}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=200&format=json&origin=*`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const pages = (data && data.query && data.query.pages) ? Object.values(data.query.pages) : [];
+    const withImg = pages.filter(p => p.thumbnail && p.thumbnail.source);
+    if (!withImg.length){
+      box.innerHTML = '<div class="logo-msg">ما لقيت أي نتيجة، جرّب اسم مختلف (بالإنجليزي أدق)</div>';
+      return;
+    }
+    box.innerHTML = withImg.map(p => `
+      <div class="logo-opt" onclick="pickClubLogo('${targetFieldId}','${p.thumbnail.source.replace(/'/g,"\\'")}')">
+        <img src="${p.thumbnail.source}" loading="lazy">
+        <span>${escapeHtmlAdmin(p.title)}</span>
+      </div>`).join('');
+  }catch(e){
+    box.innerHTML = '<div class="logo-msg">تعذر البحث الآن، جرّب مرة ثانية</div>';
+  }
+}
+function pickClubLogo(targetFieldId, url){
+  document.getElementById(targetFieldId).value = url;
+  const preview = document.getElementById(targetFieldId + '_preview');
+  if (preview) preview.src = url;
+}
+function escapeHtmlAdmin(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
 function openMatchModal(id){
   editingId = id;
   const m = id ? matches.find(x=>x.id===id) : null;
