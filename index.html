@@ -1264,6 +1264,29 @@ function tryHls(url, isBlobWrap){
     }
   });
 }
+// محاولة مباشرة بدون أي بروكسي من عندنا إطلاقًا (تمامًا زي أي مشغل m3u8 عادي/بسيط) — كثير من مصادر
+// m3u8 (خصوصًا https مع CORS مفتوح، شائع بمزوّدي IPTV الحديثين) تشتغل صح تمامًا هيك مباشرة، وتمريرها عبر
+// بروكسينا كان أحيانًا *يكسرها* بدل ما يصلحها (ترويسة Referer مختلفة، بطء إضافي، إلخ). نجرب هذي أولاً،
+// ولو فشلت (الحالة الشائعة: رابط http غير مؤمّن يُمنع من صفحة https بسبب Mixed Content) نرجع للبروكسي
+function tryHlsDirect(rawUrl){
+  return new Promise((resolve, reject)=>{
+    if (!(window.Hls && Hls.isSupported())){ reject(new Error('hls-unsupported')); return; }
+    const v = video();
+    let settled = false;
+    const inst = new Hls({ enableWorker:true });
+    inst.loadSource(rawUrl);
+    inst.attachMedia(v);
+    inst.on(Hls.Events.MANIFEST_PARSED, ()=>{
+      if (settled) return; settled = true;
+      hlsInst = inst; hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
+      resolve();
+    });
+    inst.on(Hls.Events.ERROR, (evt,data)=>{
+      if (settled) return;
+      if (data.fatal){ settled = true; try{ inst.destroy(); }catch(e){} reject(new Error('hls-direct-fatal')); }
+    });
+  });
+}
 function tryDash(url){
   return new Promise((resolve, reject)=>{
     if (!window.dashjs){ reject(new Error('dash-unsupported')); return; }
@@ -1346,6 +1369,7 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   const list = [];
   // hint = نوع مؤكّد من فحص محتوى الرابط فعليًا (بدل التخمين من الامتداد فقط) — نضعه أولاً بثقة
   if (hint === 'hls'){
+    list.push({ fn:()=>tryHlsDirect(rawUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
     list.push({ fn:()=>tryNative(netUrl) });
@@ -1369,6 +1393,7 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   }
   // لا يوجد فحص حاسم (تعذر الفحص نفسه، مثلاً بسبب سرعة اتصال) — نرجع للتخمين من الامتداد كخطة احتياطية
   if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryHlsDirect(rawUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
     list.push({ fn:()=>tryNative(netUrl) });
