@@ -486,8 +486,9 @@ async function duplicateMatch(id){
 }
 
 /* ===== نافذة المباراة ===== */
-// يبحث عن شعار نادٍ بالاسم عبر TheSportsDB (قاعدة بيانات رياضية مجانية متخصصة بأشعار/شارات الأندية
-// تحديدًا، بعكس ويكيبيديا اللي ترجع أول صورة بالصفحة حتى لو ملعب أو لاعب مو الشعار نفسه)
+// يبحث عن شعار نادٍ بالاسم عبر ويكيبيديا، لكن بطريقة أدق من قبل: بدل أخذ أول صورة بالصفحة (اللي ممكن
+// تكون صورة ملعب أو لاعب)، يدوّر تحديدًا على ملفات صور اسمها يحتوي كلمة crest/badge/logo (هذي التسمية
+// شبه ثابتة بصفحات الأندية بويكيبيديا لصورة الشعار الرسمية بالإنفوبوكس)
 async function searchClubLogo(nameFieldId, targetFieldId, resultsId){
   const name = (document.getElementById(nameFieldId).value || '').trim();
   const box = document.getElementById(resultsId);
@@ -499,20 +500,44 @@ async function searchClubLogo(nameFieldId, targetFieldId, resultsId){
   box.innerHTML = '<div class="logo-msg">جارِ البحث…</div>';
   box.classList.remove('hide');
   try{
-    const url = `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(name)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const teams = (data && data.teams) || [];
-    const withBadge = teams.filter(t => t.strTeamBadge);
-    if (!withBadge.length){
-      box.innerHTML = '<div class="logo-msg">ما لقيت أي نتيجة، جرّب الاسم بالإنجليزي (مثال: Al Hilal بدل الهلال)</div>';
+    // 1) نلقى أفضل صفحة مطابقة لاسم الفريق
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name+' football club')}&srlimit=1&format=json&origin=*`;
+    const sRes = await fetch(searchUrl);
+    const sData = await sRes.json();
+    const page = sData && sData.query && sData.query.search && sData.query.search[0];
+    if (!page){
+      box.innerHTML = '<div class="logo-msg">ما لقيت صفحة مطابقة، جرّب الاسم بالإنجليزي</div>';
       return;
     }
-    box.innerHTML = withBadge.map(t => `
-      <div class="logo-opt" onclick="pickClubLogo('${targetFieldId}','${t.strTeamBadge.replace(/'/g,"\\'")}')">
-        <img src="${t.strTeamBadge}/preview" loading="lazy">
-        <span>${escapeHtmlAdmin(t.strTeam)}</span>
-      </div>`).join('');
+    // 2) نجيب كل أسماء ملفات الصور بهذي الصفحة
+    const imgsUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(page.title)}&prop=images&imlimit=100&format=json&origin=*`;
+    const iRes = await fetch(imgsUrl);
+    const iData = await iRes.json();
+    const pages = (iData && iData.query && iData.query.pages) ? Object.values(iData.query.pages) : [];
+    const allImages = (pages[0] && pages[0].images) ? pages[0].images.map(i=>i.title) : [];
+    const candidates = allImages.filter(t => /crest|badge|logo/i.test(t)).slice(0, 6);
+    if (!candidates.length){
+      box.innerHTML = '<div class="logo-msg">ما لقيت ملف شعار واضح بصفحة "'+escapeHtmlAdmin(page.title)+'"</div>';
+      return;
+    }
+    // 3) نجيب الرابط المباشر لكل ملف مرشّح
+    const infoUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${candidates.map(encodeURIComponent).join('|')}&prop=imageinfo&iiprop=url&iiurlwidth=200&format=json&origin=*`;
+    const fRes = await fetch(infoUrl);
+    const fData = await fRes.json();
+    const fPages = (fData && fData.query && fData.query.pages) ? Object.values(fData.query.pages) : [];
+    const results = fPages.filter(p => p.imageinfo && p.imageinfo[0]);
+    if (!results.length){
+      box.innerHTML = '<div class="logo-msg">تعذر جلب روابط الصور</div>';
+      return;
+    }
+    box.innerHTML = results.map(p => {
+      const info = p.imageinfo[0];
+      const src = info.thumburl || info.url;
+      return `<div class="logo-opt" onclick="pickClubLogo('${targetFieldId}','${info.url.replace(/'/g,"\\'")}')">
+        <img src="${src}" loading="lazy">
+        <span>${escapeHtmlAdmin(page.title)}</span>
+      </div>`;
+    }).join('');
   }catch(e){
     box.innerHTML = '<div class="logo-msg">تعذر البحث الآن، جرّب مرة ثانية</div>';
   }
