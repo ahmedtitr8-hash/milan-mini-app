@@ -486,8 +486,8 @@ async function duplicateMatch(id){
 }
 
 /* ===== نافذة المباراة ===== */
-// يبحث عن شعار نادٍ بالاسم عبر ويكيبيديا (API عام يدعم CORS، بدون حاجة لمفتاح API) ويعرض النتائج
-// كصور مصغّرة يقدر الأدمن يضغط عليها فتتعبّى بخانة الشعار مباشرة، بدل ما يدوّر الرابط يدويًا كل مرة
+// يبحث عن شعار نادٍ بالاسم عبر TheSportsDB (قاعدة بيانات رياضية مجانية متخصصة بأشعار/شارات الأندية
+// تحديدًا، بعكس ويكيبيديا اللي ترجع أول صورة بالصفحة حتى لو ملعب أو لاعب مو الشعار نفسه)
 async function searchClubLogo(nameFieldId, targetFieldId, resultsId){
   const name = (document.getElementById(nameFieldId).value || '').trim();
   const box = document.getElementById(resultsId);
@@ -499,20 +499,19 @@ async function searchClubLogo(nameFieldId, targetFieldId, resultsId){
   box.innerHTML = '<div class="logo-msg">جارِ البحث…</div>';
   box.classList.remove('hide');
   try{
-    const q = encodeURIComponent(name + ' football club');
-    const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${q}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=200&format=json&origin=*`;
+    const url = `https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(name)}`;
     const res = await fetch(url);
     const data = await res.json();
-    const pages = (data && data.query && data.query.pages) ? Object.values(data.query.pages) : [];
-    const withImg = pages.filter(p => p.thumbnail && p.thumbnail.source);
-    if (!withImg.length){
-      box.innerHTML = '<div class="logo-msg">ما لقيت أي نتيجة، جرّب اسم مختلف (بالإنجليزي أدق)</div>';
+    const teams = (data && data.teams) || [];
+    const withBadge = teams.filter(t => t.strTeamBadge);
+    if (!withBadge.length){
+      box.innerHTML = '<div class="logo-msg">ما لقيت أي نتيجة، جرّب الاسم بالإنجليزي (مثال: Al Hilal بدل الهلال)</div>';
       return;
     }
-    box.innerHTML = withImg.map(p => `
-      <div class="logo-opt" onclick="pickClubLogo('${targetFieldId}','${p.thumbnail.source.replace(/'/g,"\\'")}')">
-        <img src="${p.thumbnail.source}" loading="lazy">
-        <span>${escapeHtmlAdmin(p.title)}</span>
+    box.innerHTML = withBadge.map(t => `
+      <div class="logo-opt" onclick="pickClubLogo('${targetFieldId}','${t.strTeamBadge.replace(/'/g,"\\'")}')">
+        <img src="${t.strTeamBadge}/preview" loading="lazy">
+        <span>${escapeHtmlAdmin(t.strTeam)}</span>
       </div>`).join('');
   }catch(e){
     box.innerHTML = '<div class="logo-msg">تعذر البحث الآن، جرّب مرة ثانية</div>';
