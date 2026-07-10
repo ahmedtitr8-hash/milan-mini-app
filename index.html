@@ -390,7 +390,7 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
     <div class="player-scroll">
       <div id="playerWrap" onclick="onPlayerTap(event)">
         <div class="embed-toolbar hide" id="embedToolbar">
-          <button onclick="event.stopPropagation();cycleEmbedAspect()" id="btnEmbedAspect" title="أبعاد العرض">
+          <button onclick="event.stopPropagation();toggleAspectMenu();armEmbedToolbarDim();" id="btnEmbedAspect" title="أبعاد العرض">
             <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
           </button>
           <button onclick="event.stopPropagation();toggleFS();armEmbedToolbarDim();" id="btnEmbedFS" title="فول سكرين">
@@ -401,6 +401,18 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
           </button>
         </div>
         <div id="playerPlaceholder"><div class="spinner"></div><span>جارِ تحميل البث…</span></div>
+        <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
+          border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;z-index:25;" onclick="event.stopPropagation()">
+          <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div data-ar="cover" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تعبئة الشاشة (قص الحواف)</div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div data-ar="fill" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تمديد ليطابق الشاشة</div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div data-ar="9x16" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عمودي 9:16</div>
+          <div style="height:1px;background:var(--border)"></div>
+          <div data-ar="16x9" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عرضي 16:9</div>
+        </div>
         <div id="playerToast" class="hide"></div>
         <video id="mainVideo" playsinline webkit-playsinline></video>
         <div id="liveBadgeP"><span class="bdot"></span> مباشر</div>
@@ -441,18 +453,6 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
             <div id="serverMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:190px;max-height:230px;overflow-y:auto;
               display:flex;flex-direction:column;" onclick="event.stopPropagation()"></div>
-            <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
-              border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;" onclick="event.stopPropagation()">
-              <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
-              <div style="height:1px;background:var(--border)"></div>
-              <div data-ar="cover" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تعبئة الشاشة (قص الحواف)</div>
-              <div style="height:1px;background:var(--border)"></div>
-              <div data-ar="fill" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تمديد ليطابق الشاشة</div>
-              <div style="height:1px;background:var(--border)"></div>
-              <div data-ar="9x16" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عمودي 9:16</div>
-              <div style="height:1px;background:var(--border)"></div>
-              <div data-ar="16x9" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عرضي 16:9</div>
-            </div>
             <div id="qualityMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
               border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:110px;" onclick="event.stopPropagation()"></div>
           </div>
@@ -1829,7 +1829,6 @@ function toggleFS(){
 
   w.classList.add('fs');
   if (document.getElementById('embedFrame')){
-    document.getElementById('btnEmbedAspect').classList.add('hide');
     document.getElementById('btnEmbedFS').classList.add('hide');
     document.getElementById('btnEmbedFSClose').classList.remove('hide');
   }
@@ -1841,7 +1840,6 @@ function exitFS(){
   w.classList.remove('fs');
   document.body.classList.remove('fs-lock');
   if (document.getElementById('embedFrame')){
-    document.getElementById('btnEmbedAspect').classList.remove('hide');
     document.getElementById('btnEmbedFS').classList.remove('hide');
     document.getElementById('btnEmbedFSClose').classList.add('hide');
   }
