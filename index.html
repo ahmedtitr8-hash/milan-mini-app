@@ -1216,7 +1216,7 @@ function tryHls(url, isBlobWrap){
       if (CustomLoader) loaderCfg.loader = CustomLoader;
       let settled = false, mediaErrorRetries = 0, preManifestNetworkRetries = 0;
       hlsInst = new Hls({
-        enableWorker:true, maxBufferLength:20, maxMaxBufferLength:40,
+        enableWorker:false, maxBufferLength:20, maxMaxBufferLength:40,
         liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
         xhrSetup:(xhr)=>{ xhr.withCredentials = false; },
         ...loaderCfg
@@ -1286,7 +1286,7 @@ function tryHlsDirect(rawUrl){
     const v = video();
     let settled = false, preManifestNetworkRetries = 0;
     const inst = new Hls({
-      enableWorker:true, maxBufferLength:20, maxMaxBufferLength:40,
+      enableWorker:false, maxBufferLength:20, maxMaxBufferLength:40,
       liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
       xhrSetup:(xhr)=>{ xhr.withCredentials = false; }
     });
@@ -1452,6 +1452,7 @@ function engineTimeout(ms){
   return new Promise((_,rej)=>setTimeout(()=>rej(new Error('engine-timeout')), ms));
 }
 async function runEngineChain(originalUrl, engines){
+  let lastError = null;
   for (let i=0; i<engines.length; i++){
     if (lastUrl !== originalUrl) return true; // المستخدم غيّر المصدر أثناء المحاولة — نتوقف بصمت
     if (i > 0) showPlaceholder('جارِ تجربة طريقة تشغيل أخرى…');
@@ -1459,9 +1460,11 @@ async function runEngineChain(originalUrl, engines){
       await Promise.race([ engines[i].fn(), engineTimeout(30000) ]);
       return true;
     }catch(e){
+      lastError = e;
       stopEngines();
     }
   }
+  if (lastUrl === originalUrl) window.lastPlaybackError = lastError ? (lastError.message || String(lastError)) : null;
   return lastUrl !== originalUrl;
 }
 
@@ -1603,7 +1606,8 @@ async function loadSource(url, source){
   const engines = buildEngineList(rawUrl, netUrl, bestGuess, null);
   const ok = await runEngineChain(url, engines);
   if (!ok && lastUrl === url){
-    showPlaceholder('تعذر تشغيل هذا الرابط', true);
+    const detail = window.lastPlaybackError ? (' [' + window.lastPlaybackError + ']') : '';
+    showPlaceholder('تعذر تشغيل هذا الرابط' + detail, true);
   }
 }
 
