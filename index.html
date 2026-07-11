@@ -1435,9 +1435,11 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   } else {
     if (isXtreamLiveUrl(rawUrl)){
       list.push({ fn:()=>tryMpegts(netUrl) });
+      list.push({ fn:()=>tryHlsDirect(rawUrl) });
       list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryNative(netUrl) });
     } else {
+      list.push({ fn:()=>tryHlsDirect(rawUrl) });
       list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryNative(netUrl) });
       list.push({ fn:()=>tryMpegts(netUrl) });
@@ -1552,7 +1554,7 @@ async function loadSource(url, source){
     if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
       showPlaceholder('السيرفر لا يستجيب (استغرق وقتًا طويلاً بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
     }
-  }, 15000);
+  }, 25000);
 
   // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
   if (url && /<iframe[\s>]/i.test(url)){
@@ -1594,20 +1596,14 @@ async function loadSource(url, source){
   bindVideoEvents();
   setupQualityMenu();
 
-  // نفحص محتوى الرابط الحقيقي أولاً قبل أي محاولة تشغيل — هذا يحدد المحرك الصحيح بثقة أو يوقفنا فورًا
-  // برسالة دقيقة عند وجود خطأ واضح (بدل تجربة كل المحركات عبثًا ثم رسالة عامة لا تشرح شيئًا)
-  const probe = await probeUrl(netUrl);
-  if (lastUrl !== url) return; // المستخدم غيّر المصدر أثناء الفحص
-  const classified = classifyProbe(probe);
-  if (classified.errorMsg){
-    showPlaceholder(classified.errorMsg, true);
-    return;
-  }
-
-  const engines = buildEngineList(rawUrl, netUrl, bestGuess, classified.kind);
+  // نجرب التشغيل مباشرة بلا أي فحص شبكة مسبق منفصل — بالضبط زي المشغل المرجعي المؤكد أنه يشتغل، الذي
+  // لا يفحص الرابط قبل التشغيل إطلاقًا، بل يعطي hls.js الرابط ويخليه يتعامل مع أي خطأ بنفسه (ولنفس
+  // السبب أضفنا محاولات الاسترجاع أعلاه). هذا يزيل طبقة تعقيد كاملة (فحص منفصل يفتح اتصال إضافي بحد
+  // ذاته، ويعطي رسالة عامة أحيانًا رغم إن التشغيل الفعلي كان سينجح لو جربناه مباشرة)
+  const engines = buildEngineList(rawUrl, netUrl, bestGuess, null);
   const ok = await runEngineChain(url, engines);
   if (!ok && lastUrl === url){
-    showPlaceholder('تعذر تشغيل هذا الرابط رغم استجابة السيرفر — قد تكون صيغته غير مدعومة في المشغل', true);
+    showPlaceholder('تعذر تشغيل هذا الرابط', true);
   }
 }
 
