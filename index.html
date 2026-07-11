@@ -1214,8 +1214,13 @@ function tryHls(url, isBlobWrap){
       const loaderCfg = {};
       const CustomLoader = makeProxyLoader();
       if (CustomLoader) loaderCfg.loader = CustomLoader;
-      let settled = false, mediaErrorRetries = 0;
-      hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
+      let settled = false, mediaErrorRetries = 0, preManifestNetworkRetries = 0;
+      hlsInst = new Hls({
+        enableWorker:true, maxBufferLength:20, maxMaxBufferLength:40,
+        liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
+        xhrSetup:(xhr)=>{ xhr.withCredentials = false; },
+        ...loaderCfg
+      });
       hlsInst.loadSource(url);
       hlsInst.attachMedia(v);
       hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
@@ -1225,6 +1230,13 @@ function tryHls(url, isBlobWrap){
       });
       hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
         if (!settled){
+          // قبل التشغيل الفعلي: لا نستسلم فورًا عند أول خطأ شبكة (شائع جدًا يكون عطل عابر بسيط) —
+          // نعيد المحاولة لين ٣ مرات بفاصل متزايد أولاً، بالضبط زي المشغل المرجعي المؤكد أنه يشتغل
+          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 3){
+            preManifestNetworkRetries++;
+            setTimeout(()=>{ try{ hlsInst.startLoad(); }catch(e){} }, 1500 * preManifestNetworkRetries);
+            return;
+          }
           if (data.fatal){
             settled = true;
             reject(new Error('hls-fatal:'+(data.response?data.response.code:(data.details||''))));
@@ -1272,8 +1284,12 @@ function tryHlsDirect(rawUrl){
   return new Promise((resolve, reject)=>{
     if (!(window.Hls && Hls.isSupported())){ reject(new Error('hls-unsupported')); return; }
     const v = video();
-    let settled = false;
-    const inst = new Hls({ enableWorker:true });
+    let settled = false, preManifestNetworkRetries = 0;
+    const inst = new Hls({
+      enableWorker:true, maxBufferLength:20, maxMaxBufferLength:40,
+      liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
+      xhrSetup:(xhr)=>{ xhr.withCredentials = false; }
+    });
     inst.loadSource(rawUrl);
     inst.attachMedia(v);
     inst.on(Hls.Events.MANIFEST_PARSED, ()=>{
@@ -1283,6 +1299,11 @@ function tryHlsDirect(rawUrl){
     });
     inst.on(Hls.Events.ERROR, (evt,data)=>{
       if (settled) return;
+      if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 3){
+        preManifestNetworkRetries++;
+        setTimeout(()=>{ try{ inst.startLoad(); }catch(e){} }, 1500 * preManifestNetworkRetries);
+        return;
+      }
       if (data.fatal){ settled = true; try{ inst.destroy(); }catch(e){} reject(new Error('hls-direct-fatal')); }
     });
   });
