@@ -1232,9 +1232,9 @@ function tryHls(url, isBlobWrap){
         if (!settled){
           // قبل التشغيل الفعلي: لا نستسلم فورًا عند أول خطأ شبكة (شائع جدًا يكون عطل عابر بسيط) —
           // نعيد المحاولة لين ٣ مرات بفاصل متزايد أولاً، بالضبط زي المشغل المرجعي المؤكد أنه يشتغل
-          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 3){
+          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 1){
             preManifestNetworkRetries++;
-            setTimeout(()=>{ try{ hlsInst.startLoad(); }catch(e){} }, 1500 * preManifestNetworkRetries);
+            setTimeout(()=>{ try{ hlsInst.startLoad(); }catch(e){} }, 800 * preManifestNetworkRetries);
             return;
           }
           if (data.fatal){
@@ -1299,9 +1299,9 @@ function tryHlsDirect(rawUrl){
     });
     inst.on(Hls.Events.ERROR, (evt,data)=>{
       if (settled) return;
-      if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 3){
+      if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 1){
         preManifestNetworkRetries++;
-        setTimeout(()=>{ try{ inst.startLoad(); }catch(e){} }, 1500 * preManifestNetworkRetries);
+        setTimeout(()=>{ try{ inst.startLoad(); }catch(e){} }, 800 * preManifestNetworkRetries);
         return;
       }
       if (data.fatal){ settled = true; try{ inst.destroy(); }catch(e){} reject(new Error('hls-direct-fatal')); }
@@ -1457,7 +1457,7 @@ async function runEngineChain(originalUrl, engines){
     if (lastUrl !== originalUrl) return true; // المستخدم غيّر المصدر أثناء المحاولة — نتوقف بصمت
     if (i > 0) showPlaceholder('جارِ تجربة طريقة تشغيل أخرى…');
     try{
-      await Promise.race([ engines[i].fn(), engineTimeout(30000) ]);
+      await Promise.race([ engines[i].fn(), engineTimeout(8000) ]);
       return true;
     }catch(e){
       lastError = e;
@@ -1557,7 +1557,7 @@ async function loadSource(url, source){
     if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
       showPlaceholder('السيرفر لا يستجيب (استغرق وقتًا طويلاً بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
     }
-  }, 35000);
+  }, 12000);
 
   // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
   if (url && /<iframe[\s>]/i.test(url)){
