@@ -1046,10 +1046,6 @@ function showPlaceholder(msg, showRetry){
 let lastUrl = null;
 let lastSource = null;
 let loadWatchdog = null;
-let probeAbortCtrl = null; // يخزّن الـcontroller الخاص بآخر فحص (probeUrl) جارٍ، عشان نقدر نلغيه فورًا
-// لو المستخدم ضغط إعادة محاولة/بدّل مصدر بسرعة قبل ما يخلص — بعض السيرفرات (خصوصًا IPTV بسيشن واحد
-// مسموح) كانت تفضل "مشغولة" باتصال فحص قديم لسا ما انقفل فعليًا رغم إننا تجاهلنا نتيجته بالواجهة، وهذا
-// يفسّر "أضغط 2-3 مرات وفجأة يشتغل" — الاتصالات القديمة العالقة تتحرر تدريجيًا لين يتوفر سلوت فاضي
 function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl, lastSource); }
 
 // روابط بورتالات Xtream-Codes الشهيرة بصيغة: /live/user/pass/streamID أو /movie|series/user/pass/streamID
@@ -1148,7 +1144,6 @@ function showToastMsg(msg, ms){
 }
 function resetPlayerUI(){
   destroyPlayer();
-  if (probeAbortCtrl){ try{ probeAbortCtrl.abort(); }catch(e){} probeAbortCtrl = null; }
   showPlaceholder('جارِ تحميل البث…');
   document.getElementById('playerWrap').classList.add('show');
   clearTimeout(ctrlTimer);
@@ -1162,8 +1157,6 @@ function destroyPlayer(){
   if (existingIframe) existingIframe.remove();
   video().classList.remove('hide');
   document.getElementById('ctrlLayer').classList.remove('hide');
-  document.getElementById('screenPlayer').classList.remove('embed-mode');
-  document.getElementById('embedToolbar').classList.add('hide');
 }
 // يوقف محركات التشغيل الحالية فقط، دون لمس واجهة الـ placeholder (تُستخدم بين محاولة ومحاولة داخل السلسلة)
 function stopEngines(){
@@ -1196,7 +1189,7 @@ function normalizeEmbedUrl(url){
   if (m) return { embed:true, url:`https://ok.ru/videoembed/${m[1]}` };
   m = url.match(/rumble\.com\/embed\/([\w-]+)/i);
   if (m) return { embed:true, url };
-  if (/\/embed[-\/]/i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
+  if (/\/embed\//i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
     return { embed:true, url };
   }
   return { embed:false, url };
@@ -1214,42 +1207,17 @@ function tryHls(url, isBlobWrap){
       const loaderCfg = {};
       const CustomLoader = makeProxyLoader();
       if (CustomLoader) loaderCfg.loader = CustomLoader;
-      let settled = false, mediaErrorRetries = 0, preManifestNetworkRetries = 0, fullRestartTried = false;
-      function createAndLoad(){
-        hlsInst = new Hls({
-          enableWorker:false, maxBufferLength:20, maxMaxBufferLength:40,
-          liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
-          xhrSetup:(xhr)=>{ xhr.withCredentials = false; },
-          ...loaderCfg
-        });
-        hlsInst.loadSource(url);
-        hlsInst.attachMedia(v);
-        attachHandlers();
-      }
-      function attachHandlers(){
-        hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
-          if (settled) return; settled = true;
-          hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
-          resolve();
-        });
-        hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
+      let settled = false, mediaErrorRetries = 0;
+      hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
+      hlsInst.loadSource(url);
+      hlsInst.attachMedia(v);
+      hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
+        if (settled) return; settled = true;
+        hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
+        resolve();
+      });
+      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
         if (!settled){
-          // قبل التشغيل الفعلي: لا نستسلم فورًا عند أول خطأ شبكة (شائع جدًا يكون عطل عابر بسيط) —
-          // نعيد المحاولة لين ٣ مرات بفاصل متزايد أولاً، بالضبط زي المشغل المرجعي المؤكد أنه يشتغل
-          if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 1){
-            preManifestNetworkRetries++;
-            setTimeout(()=>{ try{ hlsInst.startLoad(); }catch(e){} }, 800 * preManifestNetworkRetries);
-            return;
-          }
-          // أي نوع خطأ فادح آخر (مو شبكة ولا وسائط) — بدل الاستسلام الفوري، نجرب إعادة بناء المشغل
-          // كاملاً من الصفر مرة وحدة (بالضبط زي المشغل المرجعي)، لأن بعض الأخطاء الفادحة تُحل بإعادة
-          // إنشاء الـinstance بدل مجرد إعادة تحميل نفس المصدر على نفس الـinstance المعطوب
-          if (data.fatal && data.type !== Hls.ErrorTypes.MEDIA_ERROR && !fullRestartTried){
-            fullRestartTried = true;
-            try{ hlsInst.destroy(); }catch(e){}
-            setTimeout(createAndLoad, 1500);
-            return;
-          }
           if (data.fatal){
             settled = true;
             reject(new Error('hls-fatal:'+(data.response?data.response.code:(data.details||''))));
@@ -1275,9 +1243,7 @@ function tryHls(url, isBlobWrap){
         } else if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR){
           try{ hlsInst.startLoad(); }catch(e){}
         }
-        });
-      }
-      createAndLoad();
+      });
     } else if (!isBlobWrap && v.canPlayType('application/vnd.apple.mpegurl')){
       // دعم HLS الأصلي في سفاري (بلا لودر مخصص؛ سفاري يحسب الروابط الفرعية بنفسه استنادًا لعنوان القائمة)
       v.src = proxied(url);
@@ -1289,38 +1255,6 @@ function tryHls(url, isBlobWrap){
     } else {
       reject(new Error('hls-unsupported'));
     }
-  });
-}
-// محاولة مباشرة بدون أي بروكسي من عندنا إطلاقًا (تمامًا زي أي مشغل m3u8 عادي/بسيط) — كثير من مصادر
-// m3u8 (خصوصًا https مع CORS مفتوح، شائع بمزوّدي IPTV الحديثين) تشتغل صح تمامًا هيك مباشرة، وتمريرها عبر
-// بروكسينا كان أحيانًا *يكسرها* بدل ما يصلحها (ترويسة Referer مختلفة، بطء إضافي، إلخ). نجرب هذي أولاً،
-// ولو فشلت (الحالة الشائعة: رابط http غير مؤمّن يُمنع من صفحة https بسبب Mixed Content) نرجع للبروكسي
-function tryHlsDirect(rawUrl){
-  return new Promise((resolve, reject)=>{
-    if (!(window.Hls && Hls.isSupported())){ reject(new Error('hls-unsupported')); return; }
-    const v = video();
-    let settled = false, preManifestNetworkRetries = 0;
-    const inst = new Hls({
-      enableWorker:false, maxBufferLength:20, maxMaxBufferLength:40,
-      liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
-      xhrSetup:(xhr)=>{ xhr.withCredentials = false; }
-    });
-    inst.loadSource(rawUrl);
-    inst.attachMedia(v);
-    inst.on(Hls.Events.MANIFEST_PARSED, ()=>{
-      if (settled) return; settled = true;
-      hlsInst = inst; hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
-      resolve();
-    });
-    inst.on(Hls.Events.ERROR, (evt,data)=>{
-      if (settled) return;
-      if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 1){
-        preManifestNetworkRetries++;
-        setTimeout(()=>{ try{ inst.startLoad(); }catch(e){} }, 800 * preManifestNetworkRetries);
-        return;
-      }
-      if (data.fatal){ settled = true; try{ inst.destroy(); }catch(e){} reject(new Error('hls-direct-fatal')); }
-    });
   });
 }
 function tryDash(url){
@@ -1341,9 +1275,6 @@ function tryDash(url){
     dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ if(settled)return; settled=true; reject(new Error('dash-fatal')); });
   });
 }
-// تشغيل تدفق MPEG-TS خام مستمر (شائع في بورتالات Xtream). يميّز بين فشل الاتصال الأولي (يرفض ليجرّب محركًا
-// آخر) وبين انقطاع أثناء التشغيل الفعلي بعد النجاح (يعيد الاتصال بهدوء تلقائيًا بدل إظهار أي خطأ للمستخدم،
-// لأن هذا شائع مع بروكسيات السيرفرلس التي تقطع الاتصالات الطويلة جدًا بعد سقف زمن تنفيذ معيّن)
 function tryMpegts(url){
   return new Promise((resolve, reject)=>{
     if (!(window.mpegts && mpegts.isSupported())){ reject(new Error('mpegts-unsupported')); return; }
@@ -1390,12 +1321,8 @@ function showEmbed(url){
   hidePlaceholder();
   video().classList.add('hide');
   document.getElementById('ctrlLayer').classList.add('hide');
-  document.getElementById('screenPlayer').classList.add('embed-mode');
-  document.getElementById('embedToolbar').classList.remove('hide');
-  armEmbedToolbarDim();
   const f = document.createElement('iframe');
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
-  f.setAttribute('webkitallowfullscreen','true'); f.setAttribute('mozallowfullscreen','true');
   f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
   document.getElementById('playerWrap').appendChild(f);
 }
@@ -1405,7 +1332,6 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   const list = [];
   // hint = نوع مؤكّد من فحص محتوى الرابط فعليًا (بدل التخمين من الامتداد فقط) — نضعه أولاً بثقة
   if (hint === 'hls'){
-    list.push({ fn:()=>tryHlsDirect(rawUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
     list.push({ fn:()=>tryNative(netUrl) });
@@ -1429,7 +1355,6 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   }
   // لا يوجد فحص حاسم (تعذر الفحص نفسه، مثلاً بسبب سرعة اتصال) — نرجع للتخمين من الامتداد كخطة احتياطية
   if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
-    list.push({ fn:()=>tryHlsDirect(rawUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
     list.push({ fn:()=>tryNative(netUrl) });
@@ -1450,11 +1375,9 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   } else {
     if (isXtreamLiveUrl(rawUrl)){
       list.push({ fn:()=>tryMpegts(netUrl) });
-      list.push({ fn:()=>tryHlsDirect(rawUrl) });
       list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryNative(netUrl) });
     } else {
-      list.push({ fn:()=>tryHlsDirect(rawUrl) });
       list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryNative(netUrl) });
       list.push({ fn:()=>tryMpegts(netUrl) });
@@ -1467,19 +1390,16 @@ function engineTimeout(ms){
   return new Promise((_,rej)=>setTimeout(()=>rej(new Error('engine-timeout')), ms));
 }
 async function runEngineChain(originalUrl, engines){
-  let lastError = null;
   for (let i=0; i<engines.length; i++){
     if (lastUrl !== originalUrl) return true; // المستخدم غيّر المصدر أثناء المحاولة — نتوقف بصمت
     if (i > 0) showPlaceholder('جارِ تجربة طريقة تشغيل أخرى…');
     try{
-      await Promise.race([ engines[i].fn(), engineTimeout(8000) ]);
+      await Promise.race([ engines[i].fn(), engineTimeout(12000) ]);
       return true;
     }catch(e){
-      lastError = e;
       stopEngines();
     }
   }
-  if (lastUrl === originalUrl) window.lastPlaybackError = lastError ? (lastError.message || String(lastError)) : null;
   return lastUrl !== originalUrl;
 }
 
@@ -1489,9 +1409,7 @@ async function runEngineChain(originalUrl, engines){
 async function probeUrl(netUrl){
   let timer;
   try{
-    if (probeAbortCtrl){ try{ probeAbortCtrl.abort(); }catch(e){} }
     const ctrl = new AbortController();
-    probeAbortCtrl = ctrl;
     timer = setTimeout(()=>ctrl.abort(), 8000);
     const res = await fetch(netUrl, { signal: ctrl.signal, cache:'no-store' });
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
@@ -1565,15 +1483,6 @@ async function loadSource(url, source){
   state.currentSource = source || null;
   resetPlayerUI();
 
-  // حارس زمني: لو التشغيل ما بدأ خلال 15 ثانية (السيرفر متعلّق بدون رد، أو الاتصال يُرفض بصمت)، نعرض
-  // رسالة خطأ واضحة بدل ما يبقى المستخدم شايف شاشة فاضية/معلّقة للأبد بدون أي تفسير
-  clearTimeout(loadWatchdog);
-  loadWatchdog = setTimeout(()=>{
-    if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
-      showPlaceholder('السيرفر لا يستجيب (استغرق وقتًا طويلاً بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
-    }
-  }, 12000);
-
   // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
   if (url && /<iframe[\s>]/i.test(url)){
     const m = url.match(/src=["']([^"']+)["']/i);
@@ -1595,11 +1504,9 @@ async function loadSource(url, source){
   const extType = forcedType ? null : detectTypeFromExtension(rawUrl);
   const bestGuess = forcedType || extType || (m && m.type) || 'vod';
   applyTypeUI(bestGuess);
-
   if (!forcedType && /\.m3u8?(\?|#|$)/i.test(rawUrl)){
     detectHlsType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
   }
-
   if (!forcedType && /\.mpd(\?|#|$)/i.test(rawUrl)){
     detectDashType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
   }
@@ -1614,19 +1521,22 @@ async function loadSource(url, source){
   bindVideoEvents();
   setupQualityMenu();
 
-  // نجرب التشغيل مباشرة بلا أي فحص شبكة مسبق منفصل — بالضبط زي المشغل المرجعي المؤكد أنه يشتغل، الذي
-  // لا يفحص الرابط قبل التشغيل إطلاقًا، بل يعطي hls.js الرابط ويخليه يتعامل مع أي خطأ بنفسه (ولنفس
-  // السبب أضفنا محاولات الاسترجاع أعلاه). هذا يزيل طبقة تعقيد كاملة (فحص منفصل يفتح اتصال إضافي بحد
-  // ذاته، ويعطي رسالة عامة أحيانًا رغم إن التشغيل الفعلي كان سينجح لو جربناه مباشرة)
-  const engines = buildEngineList(rawUrl, netUrl, bestGuess, null);
+  // نفحص محتوى الرابط الحقيقي أولاً قبل أي محاولة تشغيل — هذا يحدد المحرك الصحيح بثقة أو يوقفنا فورًا
+  // برسالة دقيقة عند وجود خطأ واضح (بدل تجربة كل المحركات عبثًا ثم رسالة عامة لا تشرح شيئًا)
+  const probe = await probeUrl(netUrl);
+  if (lastUrl !== url) return; // المستخدم غيّر المصدر أثناء الفحص
+  const classified = classifyProbe(probe);
+  if (classified.errorMsg){
+    showPlaceholder(classified.errorMsg, true);
+    return;
+  }
+
+  const engines = buildEngineList(rawUrl, netUrl, bestGuess, classified.kind);
   const ok = await runEngineChain(url, engines);
   if (!ok && lastUrl === url){
-    const detail = window.lastPlaybackError ? (' [' + window.lastPlaybackError + ']') : '';
-    showPlaceholder('تعذر تشغيل هذا الرابط' + detail, true);
+    showPlaceholder('تعذر تشغيل هذا الرابط رغم استجابة السيرفر — قد تكون صيغته غير مدعومة في المشغل', true);
   }
 }
-
-let boundOnce=false;
 function bindVideoEvents(){
   if (boundOnce) return; boundOnce=true;
   const v = video();
