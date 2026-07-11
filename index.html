@@ -1406,9 +1406,9 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   // hint = نوع مؤكّد من فحص محتوى الرابط فعليًا (بدل التخمين من الامتداد فقط) — نضعه أولاً بثقة
   if (hint === 'hls'){
     list.push({ fn:()=>tryHlsDirect(rawUrl) });
+    list.push({ fn:()=>tryNative(netUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
-    list.push({ fn:()=>tryNative(netUrl) });
     return list;
   }
   if (hint === 'dash'){
@@ -1430,9 +1430,9 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
   // لا يوجد فحص حاسم (تعذر الفحص نفسه، مثلاً بسبب سرعة اتصال) — نرجع للتخمين من الامتداد كخطة احتياطية
   if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
     list.push({ fn:()=>tryHlsDirect(rawUrl) });
+    list.push({ fn:()=>tryNative(netUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
     list.push({ fn:()=>tryMpegts(netUrl) });
-    list.push({ fn:()=>tryNative(netUrl) });
   } else if (/\.mpd(\?|#|$)/i.test(rawUrl)){
     list.push({ fn:()=>tryDash(netUrl) });
     list.push({ fn:()=>tryHls(rawUrl) });
@@ -1451,12 +1451,12 @@ function buildEngineList(rawUrl, netUrl, bestGuess, hint){
     if (isXtreamLiveUrl(rawUrl)){
       list.push({ fn:()=>tryMpegts(netUrl) });
       list.push({ fn:()=>tryHlsDirect(rawUrl) });
-      list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryNative(netUrl) });
+      list.push({ fn:()=>tryHls(rawUrl) });
     } else {
       list.push({ fn:()=>tryHlsDirect(rawUrl) });
-      list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryNative(netUrl) });
+      list.push({ fn:()=>tryHls(rawUrl) });
       list.push({ fn:()=>tryMpegts(netUrl) });
     }
   }
