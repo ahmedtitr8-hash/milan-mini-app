@@ -1456,7 +1456,7 @@ async function runEngineChain(originalUrl, engines){
     if (lastUrl !== originalUrl) return true; // المستخدم غيّر المصدر أثناء المحاولة — نتوقف بصمت
     if (i > 0) showPlaceholder('جارِ تجربة طريقة تشغيل أخرى…');
     try{
-      await Promise.race([ engines[i].fn(), engineTimeout(12000) ]);
+      await Promise.race([ engines[i].fn(), engineTimeout(30000) ]);
       return true;
     }catch(e){
       stopEngines();
@@ -1554,7 +1554,7 @@ async function loadSource(url, source){
     if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
       showPlaceholder('السيرفر لا يستجيب (استغرق وقتًا طويلاً بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
     }
-  }, 25000);
+  }, 35000);
 
   // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
   if (url && /<iframe[\s>]/i.test(url)){
