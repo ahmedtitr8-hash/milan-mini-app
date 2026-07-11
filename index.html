@@ -1214,27 +1214,40 @@ function tryHls(url, isBlobWrap){
       const loaderCfg = {};
       const CustomLoader = makeProxyLoader();
       if (CustomLoader) loaderCfg.loader = CustomLoader;
-      let settled = false, mediaErrorRetries = 0, preManifestNetworkRetries = 0;
-      hlsInst = new Hls({
-        enableWorker:false, maxBufferLength:20, maxMaxBufferLength:40,
-        liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
-        xhrSetup:(xhr)=>{ xhr.withCredentials = false; },
-        ...loaderCfg
-      });
-      hlsInst.loadSource(url);
-      hlsInst.attachMedia(v);
-      hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
-        if (settled) return; settled = true;
-        hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
-        resolve();
-      });
-      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
+      let settled = false, mediaErrorRetries = 0, preManifestNetworkRetries = 0, fullRestartTried = false;
+      function createAndLoad(){
+        hlsInst = new Hls({
+          enableWorker:false, maxBufferLength:20, maxMaxBufferLength:40,
+          liveSyncDurationCount:3, liveMaxLatencyDurationCount:7,
+          xhrSetup:(xhr)=>{ xhr.withCredentials = false; },
+          ...loaderCfg
+        });
+        hlsInst.loadSource(url);
+        hlsInst.attachMedia(v);
+        attachHandlers();
+      }
+      function attachHandlers(){
+        hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
+          if (settled) return; settled = true;
+          hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
+          resolve();
+        });
+        hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
         if (!settled){
           // قبل التشغيل الفعلي: لا نستسلم فورًا عند أول خطأ شبكة (شائع جدًا يكون عطل عابر بسيط) —
           // نعيد المحاولة لين ٣ مرات بفاصل متزايد أولاً، بالضبط زي المشغل المرجعي المؤكد أنه يشتغل
           if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR && preManifestNetworkRetries < 1){
             preManifestNetworkRetries++;
             setTimeout(()=>{ try{ hlsInst.startLoad(); }catch(e){} }, 800 * preManifestNetworkRetries);
+            return;
+          }
+          // أي نوع خطأ فادح آخر (مو شبكة ولا وسائط) — بدل الاستسلام الفوري، نجرب إعادة بناء المشغل
+          // كاملاً من الصفر مرة وحدة (بالضبط زي المشغل المرجعي)، لأن بعض الأخطاء الفادحة تُحل بإعادة
+          // إنشاء الـinstance بدل مجرد إعادة تحميل نفس المصدر على نفس الـinstance المعطوب
+          if (data.fatal && data.type !== Hls.ErrorTypes.MEDIA_ERROR && !fullRestartTried){
+            fullRestartTried = true;
+            try{ hlsInst.destroy(); }catch(e){}
+            setTimeout(createAndLoad, 1500);
             return;
           }
           if (data.fatal){
@@ -1262,7 +1275,9 @@ function tryHls(url, isBlobWrap){
         } else if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR){
           try{ hlsInst.startLoad(); }catch(e){}
         }
-      });
+        });
+      }
+      createAndLoad();
     } else if (!isBlobWrap && v.canPlayType('application/vnd.apple.mpegurl')){
       // دعم HLS الأصلي في سفاري (بلا لودر مخصص؛ سفاري يحسب الروابط الفرعية بنفسه استنادًا لعنوان القائمة)
       v.src = proxied(url);
