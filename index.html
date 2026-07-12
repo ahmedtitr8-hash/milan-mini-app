@@ -1483,6 +1483,15 @@ async function loadSource(url, source){
   state.currentSource = source || null;
   resetPlayerUI();
 
+  // حارس زمني: لو التشغيل ما بدأ خلال 20 ثانية (تعلّق صامت بلا أي رد)، نعرض رسالة خطأ واضحة بدل ما تبقى
+  // شاشة "جارِ التحميل" واقفة للأبد بدون أي تفسير
+  clearTimeout(loadWatchdog);
+  loadWatchdog = setTimeout(()=>{
+    if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
+      showPlaceholder('السيرفر لا يستجيب (تعلّق التحميل بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
+    }
+  }, 20000);
+
   // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
   if (url && /<iframe[\s>]/i.test(url)){
     const m = url.match(/src=["']([^"']+)["']/i);
