@@ -471,7 +471,7 @@ const SUPABASE_URL = 'https://ckriyvqnrzravknajckl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_rFMfYa3nWxyxp6_zYUdtCw_znCYEKfV';
 // بروكسي https لروابط IPTV/Xtream التي تكون http فقط: يحوّلها فعليًا لرابط https قابل للتشغيل هنا مباشرة
 // (بدون هذا، يمنع المتصفح نفسه أي رابط http داخل صفحة https كقيد أمان لا يمكن تجاوزه بأي كود آخر)
-const STREAM_PROXY = `${SUPABASE_URL}/functions/v1/stream-proxy`;
+const STREAM_PROXY = `https://milan-mini-app.ahmedtitr8.workers.dev`;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ============== Telegram Mini App ============== */
