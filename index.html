@@ -933,12 +933,10 @@ function renderBarcaBelow(){
   let html = '';
   const chips = currentTabSources();
   if (chips.length){
-    html += `<div class="sec-title">سيرفرات وقنوات أخرى</div>
-      <div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('')}</div>`;
+    html += `<div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('')}</div>`;
   }
   if (state.barcaHubCards && state.barcaHubCards.length){
-    html += `<div class="sec-title">مباريات برشلونة</div>
-      <div class="hub-list">${state.barcaHubCards.map(barcaMatchCard).join('')}</div>`;
+    html += `<div class="hub-list">${state.barcaHubCards.map(barcaMatchCard).join('')}</div>`;
   }
   document.getElementById('belowPlayer').innerHTML = html;
   setServersButtonVisibility();
