@@ -455,7 +455,7 @@ function renderMatchList(){
   if (!list.length){ document.getElementById('mlist').innerHTML = '<p style="color:var(--mute)">لا توجد مباريات هنا</p>'; return; }
   document.getElementById('mlist').innerHTML = list.map(m=>`
     <div class="mrow">
-      <img src="${m.thumbnail_url||''}" onerror="this.style.opacity=0">
+      <img src="${m.home_logo||''}" onerror="this.style.opacity=0">
       <div class="info">
         <b>${escapeHtml(m.title || ((m.home_team||'—')+(m.away_team?(' vs '+m.away_team):'')))}</b>
         <small>${escapeHtml(m.competition||'')} ${m.round?(' · الجولة '+escapeHtml(m.round)):''} · ${m.type==='live'?'بث مباشر':'فيديو مسجل'}</small>
@@ -580,7 +580,7 @@ function openMatchModal(id){
   updateStatusSections();
   document.getElementById('f_status').onchange = updateStatusSections;
   // برشلونة لا تستخدم صورة/فئة/بنر (تصميمها الحين يعتمد فقط على الفريقين + الجولة + البطولة + الحالة)
-  document.getElementById('thumbCatSection').classList.toggle('hide', currentClub === 'barca');
+  document.getElementById('thumbCatSection').classList.add('hide');
 
   if (id){ loadSourcesFor(id); loadRelatedFor(id); }
   else { sourceRows = []; renderSourceRows(); renderRelatedChecklist([]); }
