@@ -32,7 +32,6 @@ export default {
       upstream = await fetch(targetUrl.toString(), {
         headers: {
           "User-Agent": "VLC/3.0.20 LibVLC/3.0.20",
-          "Referer": `${targetUrl.protocol}//${targetUrl.host}/`,
         },
         redirect: "follow",
       });
