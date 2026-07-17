@@ -832,6 +832,7 @@ function destroyPlayer(){
   if (existingIframe) existingIframe.remove();
   video().classList.remove('hide');
   document.getElementById('ctrlLayer').classList.remove('hide');
+  document.getElementById('embedToolbar').classList.add('hide');
 }
 // يوقف محركات التشغيل الحالية فقط، دون لمس واجهة الـ placeholder (تُستخدم بين محاولة ومحاولة داخل السلسلة)
 function stopEngines(){
@@ -1000,6 +1001,8 @@ function showEmbed(url){
   f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
   f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
   document.getElementById('playerWrap').appendChild(f);
+  document.getElementById('embedToolbar').classList.remove('hide');
+  armEmbedToolbarDim();
 }
 
 // يبني ترتيب محاولات التشغيل المناسب حسب شكل الرابط، بحيث لو فشل محرك ننتقل تلقائيًا للتالي بلا توقف
