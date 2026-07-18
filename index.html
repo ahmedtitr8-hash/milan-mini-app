@@ -1243,6 +1243,15 @@ function bindVideoEvents(){
       document.body.classList.remove('fs-lock');
     }
   });
+  // لو المستخدم صغّر تطبيق تيليجرام (سحب لأسفل) وقت تشغيل فيديو عادي (مو iframe)، نفعّل "صورة داخل
+  // صورة" (Picture-in-Picture) تلقائيًا عشان يستمر يشوف البث عائمًا فوق باقي التطبيقات بدل ما يتوقف
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden && !v.paused && !document.getElementById('embedFrame')){
+      if (document.pictureInPictureEnabled && !document.pictureInPictureElement){
+        v.requestPictureInPicture().catch(()=>{});
+      }
+    }
+  });
 }
 function fmtSec(s){ if(!s||isNaN(s)) return '0:00'; const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; }
 function updatePlayIcons(playing){
