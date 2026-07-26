@@ -216,8 +216,7 @@ function tryHls(url, isBlobWrap){
     const v = video();
     if (window.Hls && Hls.isSupported()){
       const loaderCfg = {};
-      const CustomLoader = makeProxyLoader();
-      if (CustomLoader) loaderCfg.loader = CustomLoader;
+// لا تستخدم البروكسي في أول محاولة
       let settled = false, mediaErrorRetries = 0;
       hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
       hlsInst.loadSource(url);
