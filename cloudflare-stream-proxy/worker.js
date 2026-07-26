@@ -30,9 +30,17 @@ export default {
     let upstream;
     try {
       upstream = await fetch(targetUrl.toString(), {
-        headers: {
-          "User-Agent": "VLC/3.0.20 LibVLC/3.0.20",
-        },
+        const headers = new Headers(request.headers);
+
+headers.set("User-Agent", "Mozilla/5.0");
+headers.set("Referer", targetUrl.origin + "/");
+headers.set("Origin", targetUrl.origin);
+
+upstream = await fetch(targetUrl.toString(), {
+  method: "GET",
+  headers,
+  redirect: "follow",
+});
         redirect: "follow",
       });
     } catch (e) {
