@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal DASH Player</title>
+
+<script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+
+<style>
+body{
+    margin:0;
+    background:#000;
+}
+video{
+    width:100vw;
+    height:100vh;
+    background:#000;
+}
+</style>
+</head>
+<body>
+
+<video id="videoPlayer" controls autoplay></video>
+
+<script>
+//============================
+// رابط البث
+//============================
+const manifestUrl =
+"https://ev-tcn-dxb-cdn.aws.playco.com/live/eds/Abu_Dhabi_Sports_2_HD/DASH/Abu_Dhabi_Sports_2_HD.mpd";
+
+//============================
+// إنشاء المشغل
+//============================
+const player = dashjs.MediaPlayer().create();
+
+//============================
+// إضافة Headers لكل الطلبات
+//============================
+player.extend("RequestModifier", function () {
+
+    return {
+
+        modifyRequestHeader: function(xhr){
+
+            // Authorization
+            // xhr.setRequestHeader("Authorization","Bearer YOUR_TOKEN");
+
+            // API KEY
+            // xhr.setRequestHeader("X-API-Key","YOUR_API_KEY");
+
+            // Cookie
+            // xhr.setRequestHeader("Cookie","SESSION=XXXX");
+
+            return xhr;
+        },
+
+        modifyRequestURL:function(url){
+            return url;
+        }
+
+    };
+
+},true);
+
+//============================
+// إعدادات DRM
+//============================
+player.setProtectionData({
+
+    // Widevine
+    "com.widevine.alpha":{
+
+        serverURL:
+        "https://YOUR_WIDEVINE_LICENSE",
+
+        httpRequestHeaders:{
+            //"Authorization":"Bearer TOKEN",
+            //"X-API-Key":"KEY"
+        }
+
+    },
+
+    // PlayReady
+    "com.microsoft.playready":{
+
+        serverURL:
+        "https://YOUR_PLAYREADY_LICENSE",
+
+        httpRequestHeaders:{
+            //"Authorization":"Bearer TOKEN"
+        }
+
+    },
+
+    // ClearKey
+    "org.w3.clearkey":{
+
+        clearkeys:{
+        "528afb1be8ef0e74a8fe703e37e493de"
+        : 
+        "1f58c055fe8028ca00226301d6161729"
+            //"KEY_ID":"KEY"
+        }
+
+    },
+
+    // FairPlay (Safari)
+    "com.apple.fps.1_0":{
+
+        serverURL:
+        "https://YOUR_FAIRPLAY_LICENSE",
+
+        certificateURL:
+        "https://YOUR_CERTIFICATE"
+
+    }
+
+});
+
+//============================
+// إعدادات اختيارية
+//============================
+player.updateSettings({
+
+    streaming:{
+
+        fastSwitchEnabled:true,
+
+        lowLatencyEnabled:true,
+
+        scheduleWhilePaused:false
+
+    }
+
+});
+
+//============================
+// تشغيل الفيديو
+//============================
+player.initialize(
+    document.getElementById("videoPlayer"),
+    manifestUrl,
+    true
+);
+
+//============================
+// أحداث المشغل
+//============================
+player.on("error",function(e){
+    console.log(e);
+});
+
+player.on("playbackStarted",function(){
+    console.log("Started");
+});
+
+player.on("playbackPaused",function(){
+    console.log("Paused");
+});
+
+player.on("playbackEnded",function(){
+    console.log("Ended");
+});
+</script>
+
+</body>
+</html>
