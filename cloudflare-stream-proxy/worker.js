@@ -30,9 +30,7 @@ export default {
     let upstream;
     try {
       upstream = await fetch(targetUrl.toString(), {
-        headers: {
-          "User-Agent": "VLC/3.0.20 LibVLC/3.0.20",
-        },
+        headers: {},
         redirect: "follow",
       });
     } catch (e) {
@@ -83,7 +81,9 @@ export default {
           if (trimmed.startsWith("#")) {
             return line.replace(/URI="([^"]+)"/i, (_m, uri) => {
               try {
-                const abs = new URL(uri, targetUrl).toString();
+                // Decode first to handle already encoded URIs from upstream
+                const decodedUri = decodeURIComponent(uri);
+                const abs = new URL(decodedUri, targetUrl).toString();
                 return `URI="${proxyBase}?url=${encodeURIComponent(abs)}"`;
               } catch {
                 return _m;
@@ -91,7 +91,9 @@ export default {
             });
           }
           try {
-            const abs = new URL(trimmed, targetUrl).toString();
+            // Decode first to handle already encoded URLs from upstream
+            const decodedTrimmed = decodeURIComponent(trimmed);
+            const abs = new URL(decodedTrimmed, targetUrl).toString();
             return `${proxyBase}?url=${encodeURIComponent(abs)}`;
           } catch {
             return line;
