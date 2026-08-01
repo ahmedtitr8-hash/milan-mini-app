@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>ZONE — المشغل</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dashjs@4.7.4/dist/dash.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --acc:#E87B00; --acc2:#FF9520;
+  --bg:#070707; --card:#141414; --card2:#1c1c1c; --border:#262626;
+  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
+}
+body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
+body[data-club="barca"]{ --acc:#A50044; --acc2:#1E6DE0; }
+#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--tg-safe-top);min-height:0;overflow:hidden;
+  background:#000;z-index:10000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;}
+#tickerText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px;font-weight:800;color:#fff;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--txt);font-family:'Cairo',sans-serif;height:100%;overflow:hidden;}
+img{display:block;}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer;}
+.hide{display:none!important;}
+::-webkit-scrollbar{display:none;}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;height:100%;background:var(--bg);}
+
+/* ===== هيدر ===== */
+.top-bar{display:flex;align-items:center;gap:10px;padding:calc(14px + var(--tg-safe-top)) 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
+.embed-toolbar{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;gap:6px;transition:opacity .4s;}
+.embed-toolbar.dim{opacity:.35;}
+.embed-toolbar:not(.hide){display:flex;}
+.embed-toolbar button{width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,.6);border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.embed-toolbar button svg{width:17px;height:17px;fill:#fff;}
+body.fs-lock .embed-toolbar{z-index:10000;}
+.icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn svg{width:19px;height:19px;fill:#fff;}
+.top-crest{height:28px;width:auto;max-width:64px;object-fit:contain;flex-shrink:0;}
+.top-title{font-size:16px;font-weight:800;flex:1;}
+.top-zone{font-size:12px;font-weight:800;color:var(--acc);letter-spacing:1px;}
+.bdot{width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1.6s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ===== صفحة المشغل ===== */
+.player-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;}
+#playerWrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;flex-shrink:0;}
+#playerWrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;}
+#playerWrap.ar-cover video{object-fit:cover;}
+#playerWrap.ar-fill video{object-fit:fill;}
+#playerWrap.ar-9x16:not(.fs):not(:fullscreen){aspect-ratio:9/16;}
+#playerWrap.ar-9x16 video{object-fit:cover;}
+#playerWrap.ar-16x9:not(.fs):not(:fullscreen){aspect-ratio:16/9;}
+#playerWrap.ar-16x9 video{object-fit:contain;}
+#playerWrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;}
+#playerPlaceholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#0d0d0d,#000);color:var(--mute);font-size:12px;flex-direction:column;gap:10px;z-index:2;}
+.spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.08);border-top-color:var(--acc);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#liveBadgeP{position:absolute;top:10px;right:10px;z-index:6;background:var(--live);color:#fff;font-size:10px;font-weight:800;
+  padding:4px 10px;border-radius:6px;display:none;align-items:center;gap:5px;}
+#playerToast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:15;background:rgba(20,20,20,.94);
+  color:#fff;font-size:12px;padding:9px 16px;border-radius:20px;max-width:88%;text-align:center;
+  border:1px solid rgba(255,255,255,.1);transition:opacity .25s;}
+#playerToast.hide{opacity:0;pointer-events:none;}
+/* في وضع الفول سكرين نخفي شارة "مباشر" الحمراء أعلى اليمين، وتبقى ظاهرة فقط في الوضع العادي */
+#playerWrap.fs #liveBadgeP{display:none!important;}
+/* زر إغلاق الفول سكرين: ثابت أعلى اليمين دائمًا (بمعزل عن ظهور/اختفاء بقية الأزرار)، ليسهل الوصول إليه فورًا */
+#btnFSClose{position:absolute;top:12px;right:12px;z-index:20;width:38px;height:38px;border-radius:50%;
+  background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;}
+#btnFSClose svg{width:18px;height:18px;fill:#fff;}
+#playerWrap.fs .ctrl-layer #btnFSClose{display:flex;}
+/* سهم السيرفرات: يظهر بوضع الفول سكرين فقط، لأن القنوات ظاهرة أصلاً أسفل المشغل بالوضع العادي ولا داعي لتكراره */
+#playerWrap:not(.fs) #btnServers{display:none!important;}
+.ctrl-layer{position:absolute;inset:0;z-index:5;opacity:0;transition:opacity .2s;pointer-events:none;}
+#playerWrap.show .ctrl-layer{opacity:1;pointer-events:all;}
+.ctrl-layer .top-grad{position:absolute;top:0;left:0;right:0;height:60px;background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);}
+.ctrl-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:46px;}
+.ctrl-center button{width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;}
+.ctrl-center button svg{width:26px;height:26px;fill:#fff;}
+.ctrl-center .big{width:64px;height:64px;background:rgba(0,0,0,.5);}
+.ctrl-center .big svg{width:30px;height:30px;}
+.ctrl-bottom{position:absolute;left:0;right:0;bottom:0;padding:26px 12px 10px;
+  background:linear-gradient(to top,rgba(0,0,0,.9),transparent);display:flex;flex-direction:column;gap:6px;}
+.seek-row{display:flex;align-items:center;gap:8px;}
+.seek-row input[type=range]{flex:1;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.25);border-radius:3px;}
+.seek-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--acc);}
+.time-txt{font-size:10px;color:#ddd;min-width:34px;text-align:center;}
+.bottom-btns{display:flex;align-items:center;justify-content:center;gap:28px;}
+.bottom-btns .left,.bottom-btns .right{display:flex;align-items:center;gap:14px;}
+.bottom-btns button svg{width:19px;height:19px;fill:#fff;}
+.live-flat{font-size:11px;font-weight:800;color:var(--live);display:flex;align-items:center;gap:5px;}
+
+/* فول سكرين: نعتمد دائمًا على كلاس .fs + الاتجاه الفعلي الحالي للجهاز (media query) بدل الاعتماد
+   على أي واجهة فول سكرين واحدة بعينها — لأن بعضها (مثل فول سكرين تيليجرام نفسه) يخفي الشريط العلوي
+   فقط ولا يكبّر عنصر الفيديو تلقائيًا، فنحتاج نكبّره نحن بأنفسنا دائمًا بغض النظر عن الطريقة الناجحة */
+body.fs-lock{overflow:hidden!important;}
+body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-lock #tickerBar{display:none!important;}
+/* فول سكرين: تدوير بصري بـ CSS بحت لعرض الفيديو أفقيًا داخل شاشة الجهاز العمودية (هذا لا يُدوّر الجهاز
+   فعليًا؛ فقط يعرض صندوق المشغل نفسه أفقيًا بصريًا)، مع ملاحظة أن الصندوق يدور كوحدة واحدة متكاملة بكل
+   ما فيه (الفيديو + كل الأزرار)، فتبقى مواقع الأزرار صحيحة ومتسقة نسبةً لبعضها بعد التدوير دون أي تفرّق */
+#playerWrap.fs{position:fixed!important;top:0;left:0;z-index:9999!important;background:#000!important;}
+@media (orientation:portrait){
+  #playerWrap.fs{
+    width:100dvh!important;height:100dvw!important;
+    max-height:none!important;aspect-ratio:unset!important;transform-origin:0 0;
+    transform:rotate(90deg) translateY(-100%)!important;
+  }
+}
+@media (orientation:landscape){
+  #playerWrap.fs{inset:0!important;width:100%!important;height:100%!important;
+    max-height:none!important;aspect-ratio:unset!important;transform:none!important;}
+}
+
+.below-player{padding:18px 16px;}
+.tabs-row{display:flex;gap:10px;margin-bottom:14px;}
+.tab-btn{flex:1;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);
+  font-size:13px;font-weight:800;color:var(--mute);text-align:center;}
+.tab-btn.active{background:var(--acc);color:#fff;border-color:var(--acc);}
+.teams-row{display:flex;align-items:center;justify-content:center;gap:30px;padding:18px 0 8px;}
+.team-col{display:flex;flex-direction:column;align-items:center;gap:9px;width:100px;}
+.team-col .logo-holder{height:56px;display:flex;align-items:center;justify-content:center;}
+.team-col .logo-holder img{max-height:100%;max-width:90px;width:auto;object-fit:contain;}
+.team-col span{font-size:12px;font-weight:700;text-align:center;line-height:1.3;}
+.vs-txt{font-size:13px;font-weight:900;color:var(--mute);}
+.match-meta{text-align:center;font-size:11px;color:var(--mute);margin-top:-6px;margin-bottom:6px;}
+.sec-title{font-size:13px;font-weight:800;color:var(--mute);margin:16px 0 10px;}
+.chips-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+.chip{padding:9px 16px;border-radius:9px;background:var(--card);border:1px solid var(--border);font-size:13px;font-weight:700;}
+.chip.active{background:var(--acc);border-color:var(--acc);color:#fff;}
+.related-scroll{display:flex;gap:10px;overflow-x:auto;padding-top:4px;}
+.info-note{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:14px;
+  white-space:pre-line;font-size:13px;color:var(--txt);line-height:1.7;}
+.info-note b{color:var(--acc);}
+
+/* ===== بطاقة مباراة (تصميم الهَب: مستخدمة لبطاقات "مباريات برشلونة") ===== */
+.hub-list{display:flex;flex-direction:column;gap:14px;margin-top:4px;}
+.hub-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px 16px;transition:border-color .15s;}
+.hub-card.active{border-color:var(--acc);}
+.hub-card-top{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;}
+.hub-badge{background:var(--acc);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:6px;flex-shrink:0;}
+.hub-comp{font-size:11px;color:var(--mute);font-weight:700;}
+.hub-teams{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.hub-team{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;}
+.hub-logo{width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hub-logo img{max-width:100%;max-height:100%;object-fit:contain;}
+.hub-team span{font-size:11.5px;font-weight:700;text-align:center;line-height:1.3;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hub-time{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 8px;}
+.hub-t{font-size:15px;font-weight:900;color:var(--acc);}
+.hub-d{font-size:10px;color:var(--mute);}
+.hub-live{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:900;color:var(--live);white-space:nowrap;}
+
+/* ===== بطاقة مباراة (تصميم الهَب) ===== */
+.hub-list{display:flex;flex-direction:column;gap:14px;margin-top:4px;}
+.hub-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px 16px;transition:border-color .15s;}
+.hub-card.active{border-color:var(--acc);}
+.hub-card-top{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;}
+.hub-badge{background:var(--acc);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:6px;flex-shrink:0;}
+.hub-comp{font-size:11px;color:var(--mute);font-weight:700;}
+.hub-teams{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.hub-team{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;}
+.hub-logo{width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hub-logo img{max-width:100%;max-height:100%;object-fit:contain;}
+.hub-team span{font-size:11.5px;font-weight:700;text-align:center;line-height:1.3;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hub-time{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;padding:0 8px;}
+.hub-t{font-size:15px;font-weight:900;color:var(--acc);}
+.hub-d{font-size:10px;color:var(--mute);}
+.hub-live{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:900;color:var(--live);white-space:nowrap;}
+.chips-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+.chip{padding:9px 16px;border-radius:9px;background:var(--card);border:1px solid var(--border);font-size:13px;font-weight:700;}
+.chip.active{background:var(--acc);border-color:var(--acc);color:#fff;}
+
+/* فول سكرين: تدوير بصري بـ CSS بحت */
+body.fs-lock{overflow:hidden!important;}
+body.fs-lock .top-bar,body.fs-lock #tickerBar{display:none!important;}
+#playerWrap.fs{position:fixed!important;top:0;left:0;z-index:9999!important;background:#000!important;}
+@media (orientation:portrait){
+  #playerWrap.fs{
+    width:100dvh!important;height:100dvw!important;
+    max-height:none!important;aspect-ratio:unset!important;transform-origin:0 0;
+    transform:rotate(90deg) translateY(-100%)!important;
+  }
+}
+@media (orientation:landscape){
+  #playerWrap.fs{inset:0!important;width:100%!important;height:100%!important;
+    max-height:none!important;aspect-ratio:unset!important;transform:none!important;}
+}
+</style>
+</head>
+<body>
+<div id="tickerBar"><div id="tickerText"></div></div>
+<div id="app">
+  <div class="top-bar">
+    <button class="icon-btn" onclick="closePlayer()">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </button>
+    <div class="top-title" id="playerTitle">المباراة</div>
+    <div class="top-zone">ZONE</div>
+  </div>
+  <div id="playerWrap" onclick="onPlayerTap(event)">
+    <div class="embed-toolbar hide" id="embedToolbar">
+      <button onclick="event.stopPropagation();toggleAspectMenu();armEmbedToolbarDim();" id="btnEmbedAspect" title="أبعاد العرض">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
+      </button>
+      <button onclick="event.stopPropagation();toggleFS();armEmbedToolbarDim();" id="btnEmbedFS" title="فول سكرين">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      </button>
+      <button onclick="event.stopPropagation();exitFS();armEmbedToolbarDim();" id="btnEmbedFSClose" class="hide" title="إغلاق الفول سكرين">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div id="playerPlaceholder"><div class="spinner"></div><span>جارِ تحميل البث…</span></div>
+    <div id="aspectMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
+      border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:170px;z-index:25;" onclick="event.stopPropagation()">
+      <div data-ar="" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">احتواء طبيعي (افتراضي)</div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div data-ar="cover" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تعبئة الشاشة (قص الحواف)</div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div data-ar="fill" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تمديد ليطابق الشاشة</div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div data-ar="9x16" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عمودي 9:16</div>
+      <div style="height:1px;background:var(--border)"></div>
+      <div data-ar="16x9" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">عرضي 16:9</div>
+    </div>
+    <div id="playerToast" class="hide"></div>
+    <video id="mainVideo" playsinline webkit-playsinline></video>
+    <div id="liveBadgeP"><span class="bdot"></span> مباشر</div>
+    <div class="ctrl-layer" id="ctrlLayer">
+      <button id="btnFSClose" onclick="event.stopPropagation();exitFS()" title="إغلاق الفول سكرين">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+      <div class="top-grad"></div>
+      <div class="ctrl-center">
+        <button onclick="event.stopPropagation();seekBy(-10)" id="btnBack10"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>
+        <button class="big" onclick="event.stopPropagation();togglePlay()" id="btnCenterPlay"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+        <button onclick="event.stopPropagation();seekBy(10)" id="btnFwd10"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/></svg></button>
+      </div>
+      <div class="ctrl-bottom" onclick="event.stopPropagation()">
+        <div class="seek-row" id="seekRow">
+          <span class="time-txt" id="timeCur">0:00</span>
+          <input type="range" id="seekBar" min="0" max="100" value="0" oninput="onSeekInput(this.value)">
+          <span class="time-txt" id="timeDur">0:00</span>
+        </div>
+        <div class="bottom-btns">
+          <div class="right">
+            <button onclick="togglePlay()" id="btnBarPlay"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+            <button onclick="toggleMute()" id="btnMute"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg></button>
+            <button onclick="event.stopPropagation();toggleServerMenu()" id="btnServers" class="hide" title="سيرفرات وقنوات أخرى">
+              <svg viewBox="0 0 24 24" id="btnServersIcon"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+            </button>
+          </div>
+          <div class="left">
+            <button onclick="event.stopPropagation();toggleAspectMenu()" id="btnAspect" title="أبعاد العرض">
+              <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM8 8h8v2H8zm0 4h8v2H8z"/></svg>
+            </button>
+            <button onclick="event.stopPropagation();toggleQualityMenu()" id="btnQuality" class="hide">
+              <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L1.66 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.4.34.66.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.09.5.02.66-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
+            </button>
+            <button onclick="toggleFS()" id="btnFS"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+          </div>
+        </div>
+        <div id="serverMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
+          border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:190px;max-height:230px;overflow-y:auto;
+          display:flex;flex-direction:column;" onclick="event.stopPropagation()"></div>
+        <div id="qualityMenu" class="hide" style="position:absolute;bottom:46px;left:50%;transform:translateX(-50%);background:rgba(20,20,20,.96);
+          border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:110px;" onclick="event.stopPropagation()"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="player-scroll">
+    <div class="below-player" id="belowPlayer"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================================
+   مشغل ZONE — صفحة مستقلة تمامًا (تنقّل حقيقي، وليس iframe مضمّن داخل index.html).
+   الاستخدام: player.html?club=milan  أو  player.html?club=barca
+   ============================================================================================ */
+const SUPABASE_URL = 'https://ckriyvqnrzravknajckl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_rFMfYa3nWxyxp6_zYUdtCw_znCYEKfV';
+const STREAM_PROXY = `https://milan-mini-app.ahmedtitr8.workers.dev`;
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============== Telegram Mini App ============== */
+try{
+  if (window.Telegram && window.Telegram.WebApp){
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+    if (typeof Telegram.WebApp.requestFullscreen === 'function'){
+      try{ Telegram.WebApp.requestFullscreen(); }catch(e){}
+    }
+    function applyTgSafeArea(){
+      const c = Telegram.WebApp.contentSafeAreaInset || {};
+      const s = Telegram.WebApp.safeAreaInset || {};
+      const top = (c.top||0) + (s.top||0);
+      document.documentElement.style.setProperty('--tg-safe-top', top + 'px');
+    }
+    applyTgSafeArea();
+    if (typeof Telegram.WebApp.onEvent === 'function'){
+      Telegram.WebApp.onEvent('contentSafeAreaChanged', applyTgSafeArea);
+      Telegram.WebApp.onEvent('safeAreaChanged', applyTgSafeArea);
+      Telegram.WebApp.onEvent('fullscreenChanged', applyTgSafeArea);
+    }
+    try{ if (typeof Telegram.WebApp.setHeaderColor === 'function') Telegram.WebApp.setHeaderColor('#000000'); }catch(e){}
+  }
+}catch(e){}
+
+/* ============== الحالة ============== */
+const CLUB_NAMES = { milan:'ميلان', barca:'برشلونة' };
+let state = { club:null, currentMatch:null, sources:[], related:[], currentTab:'live', currentSource:null, barcaHubCards:null, clubTelegram:null };
+
+/* ============== شريط الأخبار العلوي (ticker) فقط — بقية إعدادات app_settings خاصة بصفحة اختيار النادي ============== */
+async function loadTicker(){
+  try{
+    const { data } = await sb.from('app_settings').select('*').eq('id', 1).single();
+    if (data && data.ticker_text) document.getElementById('tickerText').textContent = data.ticker_text;
+  }catch(e){}
+}
+loadTicker();
+
+async function openClub(club){
+  state.club = club;
+  document.body.setAttribute('data-club', club);
+  loadClubLogo(club);
+  await renderBarcaHub();
+}
+// تصميم مخصص لصفحة برشلونة: المشغل أعلى الصفحة مباشرة، السيرفرات تحته (إن وجدت)، وتحتها بطاقات المباريات
+// (سابقة/قادمة، أو مباشر/سابقة لو فيه مباراة مباشرة الآن) والتنقل بينها يتم داخل نفس الصفحة دون أي
+// إعادة تحميل/انتقال يُشعر المستخدم بالدخول لصفحة جديدة — الشاشة تُعرض مرة واحدة فقط هنا (show)
+async function renderBarcaHub(){
+  const club = state.club;
+  state.barcaHubCards = null;
+  document.getElementById('playerTitle').textContent = CLUB_NAMES[club] || '';
+  resetPlayerUI();
+  document.getElementById('belowPlayer').innerHTML = '';
+  const { data } = await sb.from('matches').select('*').eq('club', club);
+  const matches = data || [];
+  if (!matches.length){
+    showPlaceholder('لا توجد مباريات مضافة حالياً', false);
+    return;
+  }
+  // تُعرض كل المباريات المضافة للنادي (بلا حد أقصى)، مرتّبة: المباشرة أولاً، ثم القادمة (الأقرب فالأبعد)،
+  // ثم المنتهية (الأحدث فالأقدم) — وتُفتح تلقائيًا أنسب مباراة حسب نفس الترتيب
+  const live = matches.filter(m=>m.status==='live');
+  const upcoming = matches.filter(m=>m.status==='upcoming')
+    .sort((a,b)=> new Date(a.kickoff_at||0) - new Date(b.kickoff_at||0));
+  const finished = matches.filter(m=>m.status==='finished')
+    .sort((a,b)=> new Date(b.kickoff_at||0) - new Date(a.kickoff_at||0));
+  const cards = [...live, ...upcoming, ...finished];
+  state.barcaHubCards = cards;
+  const initial = live[0] || upcoming[0] || finished[0];
+  await loadBarcaMatch(initial.id);
+}
+// تحميل مباراة داخل هَب النادي دون الخروج من الشاشة أو التلميح بأي "تحميل صفحة" — فقط تحديث
+// الفيديو والعنوان والسيرفرات وبطاقات المباريات في مكانها
+async function loadBarcaMatch(matchId){
+  resetPlayerUI();
+  const { data:m } = await sb.from('matches').select('*').eq('id', matchId).single();
+  if (!m) return;
+  state.currentMatch = m;
+  // العنوان يبقى ثابتًا باسم النادي دائمًا (هذي صفحة نادٍ وليست صفحة مباراة منفردة)
+  document.getElementById('playerTitle').textContent = CLUB_NAMES[state.club] || '';
+  const { data:sources } = await sb.from('match_sources').select('*').eq('match_id', matchId).order('sort_order');
+  state.sources = sources || [];
+  state.related = [];
+  state.currentTab = m.type==='live' ? 'live' : 'full';
+  renderBelowPlayer();
+  loadTabSources();
+}
+async function loadClubLogo(club){
+  const { data } = await sb.from('club_settings').select('*').eq('club', club).single();
+  state.clubTelegram = data ? { link: data.telegram_link||'', label: data.telegram_label||'' } : null;
+  const url = data && data.logo_url;
+  if (!url) return;
+  ['homeCrest','finCrest'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url; img.alt=''; img.className='top-crest';
+    img.onerror = ()=>{}; // يبقى الحرف كما هو إذا فشل تحميل الشعار
+    img.onload = ()=>{ el.replaceWith(img); img.id = id; };
+  });
+}
+function backToClubs(){ location.href = 'index.html'; }
+function crestImg(club,size,id){
+  const bg = club==='milan' ? 'linear-gradient(135deg,#E2101A,#7a0a0f)' : 'linear-gradient(135deg,#A50044,#004D98)';
+  const letter = club==='milan' ? 'M' : 'B';
+  return `<div id="${id}" style="width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${size*0.45}px;flex-shrink:0;background:${bg};">${letter}</div>`;
+}
+
+/* ============== تنسيق الوقت ============== */
+function fmtKickoff(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('ar', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' });
+}
+function fmtTimeOnly(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleString('ar', { hour:'2-digit', minute:'2-digit' });
+}
+function fmtDateOnly(iso){
+  if(!iso) return '';
+  return new Date(iso).toLocaleString('ar', { day:'2-digit', month:'2-digit' });
+}
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// بطاقة مباراة بتصميم "الهَب" (مستخدمة لبطاقات مباريات برشلونة): شعار واسم كل نادٍ فقط، وقت المباراة
+// وتاريخها بالمنتصف، وفوق يمين البطاقة الجولة وبجانبها البطولة — بدون ناقل/ثمبنيل
+function barcaMatchCenter(m){
+  if (m.status === 'live'){
+    return `<div class="hub-time"><span class="hub-live"><span class="bdot"></span>مباشر</span></div>`;
+  }
+  if (m.status === 'finished'){
+    const hasScore = m.home_score !== null && m.home_score !== undefined && m.away_score !== null && m.away_score !== undefined;
+    return `<div class="hub-time">${hasScore ? `<span class="hub-t">${m.home_score} - ${m.away_score}</span>` : ''}<span class="hub-d">انتهت</span></div>`;
+  }
+  return `<div class="hub-time"><span class="hub-t">${fmtTimeOnly(m.kickoff_at)}</span><span class="hub-d">${fmtDateOnly(m.kickoff_at)}</span></div>`;
+}
+function barcaMatchCard(m){
+  const active = state.currentMatch && state.currentMatch.id === m.id;
+  return `<div class="hub-card ${active?'active':''}" onclick="loadBarcaMatch('${m.id}')">
+    ${(m.round || m.competition) ? `<div class="hub-card-top">
+      ${m.competition?`<span class="hub-comp">${escapeHtml(m.competition)}</span>`:''}
+      ${m.round?`<span class="hub-badge">${escapeHtml(String(m.round))}</span>`:''}
+    </div>` : ''}
+    <div class="hub-teams">
+      <div class="hub-team"><div class="hub-logo"><img src="${m.home_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.home_team||'')}</span></div>
+      ${barcaMatchCenter(m)}
+      <div class="hub-team"><div class="hub-logo"><img src="${m.away_logo||''}" alt="" onerror="this.style.opacity=0"></div><span>${escapeHtml(m.away_team||'')}</span></div>
+    </div>
+  </div>`;
+}
+
+function currentTabSources(){
+  return state.sources.filter(s=>s.tab===state.currentTab);
+}
+function loadTabSources(){
+  const m = state.currentMatch;
+  const list = currentTabSources();
+  if (list.length){
+    // فيه محتوى مضاف فعليًا (أي نوع)، نشغّله بدون قيود حتى لو الحالة "قادمة"
+    loadSource(list[0].url, list[0]);
+  } else if (m.status === 'upcoming'){
+    showUpcomingState(m);
+  } else {
+    showPlaceholder('لا يوجد رابط متاح حالياً', true);
+  }
+  renderBelowPlayer();
+}
+let countdownTimer = null;
+function showUpcomingState(m){
+  destroyPlayer();
+  clearInterval(countdownTimer);
+  const v = video();
+  v.poster = m.thumbnail_url || '';
+  document.getElementById('liveBadgeP').style.display = 'none';
+  document.getElementById('seekRow').style.display = 'none';
+  document.getElementById('btnBack10').style.display = 'none';
+  document.getElementById('btnFwd10').style.display = 'none';
+  document.getElementById('ctrlLayer').classList.add('hide');
+  const p = document.getElementById('playerPlaceholder');
+  const note = (m.upcoming_note || '').trim();
+  p.innerHTML = `
+    <svg viewBox="0 0 24 24" style="width:34px;height:34px;fill:var(--acc)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11h-2V7h2zm0 4h-2v-2h2z"/></svg>
+    <span style="font-weight:800;color:#fff;">المباراة لم تبدأ بعد</span>
+    <span style="font-size:12px;">موعد الانطلاق: ${fmtKickoff(m.kickoff_at) || 'قريبًا'}</span>
+    <span id="kickoffCountdown" style="font-size:18px;font-weight:900;color:var(--acc);margin-top:4px;letter-spacing:.5px;"></span>
+    ${note ? `<span style="font-size:12.5px;color:#ddd;max-width:280px;text-align:center;line-height:1.5;margin-top:2px;">${escapeHtml(note)}</span>` : ''}`;
+  p.classList.remove('hide');
+  const target = m.kickoff_at ? new Date(m.kickoff_at).getTime() : null;
+  const el = document.getElementById('kickoffCountdown');
+  function tick(){
+    if (!target || !el) { clearInterval(countdownTimer); return; }
+    const diff = target - Date.now();
+    if (diff <= 0){ el.textContent = 'على وشك الانطلاق'; clearInterval(countdownTimer); return; }
+    const d = Math.floor(diff/86400000);
+    const h = Math.floor((diff%86400000)/3600000);
+    const mi = Math.floor((diff%3600000)/60000);
+    const s = Math.floor((diff%60000)/1000);
+    el.textContent = d>0
+      ? `يبدأ بعد ${d} يوم ${h} س ${mi} د`
+      : `يبدأ بعد ${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+/* ============== صفحة نادي برشلونة: عرض مستقل بالكامل عن منطق "صفحة المباراة" ==============
+   لا تشترك هذه الدالة بأي جزء من renderBelowPlayer (الخاصة بميلان) — فقط: سيرفرات إن وُجدت،
+   ثم قائمة كل مباريات برشلونة المضافة، ثم قناة تيليجرام إن وُجدت */
+function renderBarcaBelow(){
+  let html = '';
+  const chips = currentTabSources();
+  if (chips.length){
+    html += `<div class="chips-row" id="chipsRow">${chips.map((s,i)=>`<div class="chip ${i===0?'active':''}" onclick="pickSource(${i},this)">${escapeHtml(s.label)}</div>`).join('')}</div>`;
+  }
+  if (state.barcaHubCards && state.barcaHubCards.length){
+    html += `<div class="hub-list">${state.barcaHubCards.map(barcaMatchCard).join('')}</div>`;
+  }
+  document.getElementById('belowPlayer').innerHTML = html;
+  setServersButtonVisibility();
+  const tg = state.clubTelegram;
+  if (tg && tg.link){
+    document.getElementById('belowPlayer').insertAdjacentHTML('beforeend', `
+      <a href="${tg.link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;
+        margin:14px auto 4px;width:100%;max-width:280px;padding:11px 16px;border-radius:12px;
+        background:rgba(255,255,255,.06);border:1px solid var(--border);color:#fff;text-decoration:none;
+        font-size:13px;font-weight:700;justify-content:center;">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="#2AABEE"><path d="M21.5 4.5L2.7 12.2c-1.2.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.8c.2.7.5.9 1.2.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.3 1.8-.8l3.3-15.5c.4-1.4-.5-2-1.3-1.6z"/></svg>
+        <span>${escapeHtml(tg.label || 'قناة النادي على تيليجرام')}</span>
+      </a>`);
+  }
+}
+function renderBelowPlayer(){
+  // كل الأندية الحين تستخدم نفس منطق عرض "هَب النادي" (لا صفحة مباراة منفردة إطلاقًا)
+  renderBarcaBelow();
+}
+function switchTab(tab){
+  state.currentTab = tab;
+  loadTabSources();
+}
+function pickSource(i, el){
+  const list = currentTabSources();
+  if (!list[i]) return;
+  document.querySelectorAll('#chipsRow .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  loadSource(list[i].url, list[i]);
+}
+function closePlayer(){
+  destroyPlayer();
+  location.href = 'index.html';
+}
+
+/* ============== محرك تشغيل الفيديو ============== */
+let hlsInst=null;
+let dashInst=null;
+let mpegtsInst=null;
+const video = ()=>document.getElementById('mainVideo');
+let isPlayingState=false, isMuted=false, isFull=false, ctrlTimer=null;
+
+function showPlaceholder(msg, showRetry){
+  const p=document.getElementById('playerPlaceholder');
+  p.innerHTML = showRetry
+    ? `<span>${msg}</span><button onclick="retryCurrentSource()" style="margin-top:6px;padding:8px 18px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;">إعادة المحاولة</button>`
+    : `<div class="spinner"></div><span>${msg}</span>`;
+  p.classList.remove('hide');
+}
+let lastUrl = null;
+let lastSource = null;
+let loadWatchdog = null;
+function retryCurrentSource(){ if (lastUrl) loadSource(lastUrl, lastSource); }
+
+// روابط بورتالات Xtream-Codes الشهيرة بصيغة: /live/user/pass/streamID أو /movie|series/user/pass/streamID
+// وأحيانًا كثيرة بلا كلمة "live" ظاهرة إطلاقًا: /user/pass/streamID مباشرة (وهذا هو الشكل الأشيع لسيرفرات IPTV)
+// غالبًا بلا امتداد ظاهر، أو بامتداد .ts لتدفق مباشر خام يحتاج مشغّل MPEG-TS (mpegts.js) بدل <video> العادي
+function isXtreamLiveUrl(url){
+  if (/\/(movie|series)\//i.test(url)) return false; // مسارات Xtream الخاصة بالفيديو المسجل (أفلام/مسلسلات)
+  if (/\/live\//i.test(url)) return true;
+  // نمط عام: مضيف/بورت ثم 3 مقاطع (مستخدم/كلمة سر/رقم القناة) بلا أي كلمة صريحة — شائع جدًا في بورتالات IPTV
+  return /^https?:\/\/[^\/]+\/[^\/?#]+\/[^\/?#]+\/\d+(\.\w+)?(\?|#|$)/i.test(url);
+}
+
+// تحويل أي رابط http (على صفحة https) إلى نفس الرابط مارًّا عبر بروكسينا الخاص، وإلا يُرجعه كما هو.
+// هذه الدالة تُستخدم لكل طلب على حدة (وليس مرة واحدة فقط لرابط البداية) حتى تعمل الروابط الفرعية
+// المتداخلة داخل قوائم التشغيل (master m3u8 → sub-playlist → مقاطع .ts) بلا استثناء ولا علاقة بامتدادها.
+function proxied(u){
+  // حارس: لو الرابط ممرَّر بالبروكسي مسبقًا (يحصل مع الروابط الفرعية المتداخلة داخل قوائم m3u8 التي
+  // يعيد بروكسينا كتابتها بنفسه ليجعلها مطلقة ومارّة بالبروكسي)، لا نعيد تغليفه بطبقة بروكسي إضافية عبثًا
+  if (u.startsWith(STREAM_PROXY)) return u;
+  // نمرّر كل الروابط عبر البروكسي دومًا (لا فقط http) — كثير من روابط m3u8 الحقيقية https لكنها بلا ترويسات
+  // CORS، فيرفض المتصفح قراءة ردها مباشرة رغم إنها https. بروكسينا يضيف ترويسات CORS مسموحة دومًا من طرفه،
+  // فتوجيه كل شيء عبره يضمن عدم انكسار أي رابط بسبب CORS بغض النظر عن نوع بروتوكوله
+  return `${STREAM_PROXY}?url=${encodeURIComponent(u)}`;
+}
+// لودر مخصص لمكتبة hls.js: يُمرَّر إليه الرابط الأصلي (http أو https) كمصدر، فتقوم المكتبة نفسها بحساب
+// روابط القوائم الفرعية والمقاطع بشكل صحيح استنادًا لعنوان الرابط الأصلي (وليس رابط البروكسي)، ثم عند
+// تنفيذ كل طلب فعلي على حدة فقط نمرّره على البروكسي إن كان http — هذا يحل مشكلة الروابط النسبية داخل
+// قوائم m3u8 المتداخلة التي كانت تنكسر سابقًا لو استبدلنا الرابط الأساسي برابط البروكسي منذ البداية.
+function makeProxyLoader(){
+  const Base = (window.Hls && Hls.DefaultConfig && Hls.DefaultConfig.loader) || null;
+  if (!Base) return undefined;
+  return class ProxyLoader extends Base{
+    load(context, config, callbacks){
+      if (context && context.url) context.url = proxied(context.url);
+      super.load(context, config, callbacks);
+    }
+  };
+}
+
+/* ============== اكتشاف نوع الرابط: بث مباشر أم فيديو مسجل ============== */
+function detectTypeFromExtension(url){
+  if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(url)) return 'vod';
+  if (/\.ts(\?|#|$)/i.test(url)) return isXtreamLiveUrl(url) ? 'live' : 'vod';
+  if (/youtube\.com\/live\//i.test(url)) return 'live';
+  if (isXtreamLiveUrl(url)) return 'live';
+  return null;
+}
+async function detectHlsType(url, depth){
+  depth = depth || 0;
+  try{
+    const res = await fetch(proxied(url), { cache:'no-store' });
+    const text = await res.text();
+    if (/#EXT-X-ENDLIST/i.test(text) || /#EXT-X-PLAYLIST-TYPE:\s*VOD/i.test(text)) return 'vod';
+    if (/#EXT-X-PLAYLIST-TYPE:\s*EVENT/i.test(text)) return 'live';
+    if (depth < 2){
+      const lines = text.split('\n').map(l=>l.trim()).filter(l=>l && !l.startsWith('#'));
+      if (lines.length){
+        const subUrl = new URL(lines[0], url).href;
+        return await detectHlsType(subUrl, depth+1);
+      }
+    }
+    return 'live';
+  }catch(e){
+    return null;
+  }
+}
+async function detectDashType(url){
+  try{
+    const res = await fetch(proxied(url), { cache:'no-store' });
+    const text = await res.text();
+    const m = text.match(/<MPD[^>]*\btype="([^"]+)"/i);
+    if (m) return m[1].toLowerCase()==='dynamic' ? 'live' : 'vod';
+    return 'vod';
+  }catch(e){
+    return null;
+  }
+}
+function applyTypeUI(type){
+  const isLive = type === 'live';
+  document.getElementById('liveBadgeP').style.display = isLive ? 'flex':'none';
+  document.getElementById('seekRow').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnBack10').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnFwd10').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnBarPlay').style.display = isLive ? 'none':'flex';
+  document.getElementById('btnCenterPlay').style.display = isLive ? 'none':'flex';
+}
+function hidePlaceholder(){ document.getElementById('playerPlaceholder').classList.add('hide'); }
+let toastTimer = null;
+function showToastMsg(msg, ms){
+  const t = document.getElementById('playerToast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove('hide');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.add('hide'), ms || 3200);
+}
+function resetPlayerUI(){
+  destroyPlayer();
+  showPlaceholder('جارِ تحميل البث…');
+  document.getElementById('playerWrap').classList.add('show');
+  clearTimeout(ctrlTimer);
+}
+
+function destroyPlayer(){
+  clearTimeout(loadWatchdog);
+  clearInterval(countdownTimer);
+  stopEngines();
+  const existingIframe = document.getElementById('embedFrame');
+  if (existingIframe) existingIframe.remove();
+  video().classList.remove('hide');
+  document.getElementById('ctrlLayer').classList.remove('hide');
+  document.getElementById('embedToolbar').classList.add('hide');
+}
+// يوقف محركات التشغيل الحالية فقط، دون لمس واجهة الـ placeholder (تُستخدم بين محاولة ومحاولة داخل السلسلة)
+function stopEngines(){
+  if (hlsInst){ try{hlsInst.destroy();}catch(e){} hlsInst=null; }
+  if (dashInst){ try{dashInst.reset();}catch(e){} dashInst=null; }
+  if (mpegtsInst){ try{mpegtsInst.destroy();}catch(e){} mpegtsInst=null; }
+  const v = video();
+  try{ v.pause(); v.removeAttribute('src'); v.load(); }catch(e){}
+}
+
+function normalizeEmbedUrl(url){
+  let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/live\/|youtube\.com\/shorts\/)([\w-]{6,})/i);
+  if (m) return { embed:true, url:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
+  m = url.match(/youtube\.com\/embed\/([\w-]{6,})/i);
+  if (m) return { embed:true, url:`https://www.youtube.com/embed/${m[1]}?autoplay=1&playsinline=1` };
+  m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (m) return { embed:true, url:`https://player.vimeo.com/video/${m[1]}?autoplay=1` };
+  m = url.match(/drive\.google\.com\/file\/d\/([\w-]+)/i);
+  if (m) return { embed:true, url:`https://drive.google.com/file/d/${m[1]}/preview` };
+  m = url.match(/dailymotion\.com\/video\/([\w-]+)/i) || url.match(/dai\.ly\/([\w-]+)/i);
+  if (m) return { embed:true, url:`https://www.dailymotion.com/embed/video/${m[1]}?autoplay=1` };
+  m = url.match(/twitch\.tv\/videos\/(\d+)/i);
+  if (m) return { embed:true, url:`https://player.twitch.tv/?video=${m[1]}&parent=${location.hostname}&autoplay=true` };
+  m = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)\/?$/i);
+  if (m && !/videos|directory|settings/i.test(m[1])) return { embed:true, url:`https://player.twitch.tv/?channel=${m[1]}&parent=${location.hostname}&autoplay=true` };
+  if (/facebook\.com|fb\.watch/i.test(url)){
+    return { embed:true, url:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&autoplay=1&show_text=0` };
+  }
+  m = url.match(/ok\.ru\/(?:video|live)\/(\d+)/i);
+  if (m) return { embed:true, url:`https://ok.ru/videoembed/${m[1]}` };
+  m = url.match(/rumble\.com\/embed\/([\w-]+)/i);
+  if (m) return { embed:true, url };
+  if (/\/embed\//i.test(url) && !/\.m3u8|\.mp4|\.webm|\.mov|\.m4v|\.ogv/i.test(url)){
+    return { embed:true, url };
+  }
+  return { embed:false, url };
+}
+
+/* ============== محاولات التشغيل: كل محرك يُرجع Promise تُحل عند النجاح الفعلي، وتُرفض عند الفشل ============== */
+function makeTsPlaylistBlob(netUrl){
+  const playlist = `#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:600\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXTINF:600,\n${netUrl}\n#EXT-X-ENDLIST`;
+  return URL.createObjectURL(new Blob([playlist], { type:'application/vnd.apple.mpegurl' }));
+}
+function tryHls(url, isBlobWrap){
+  return new Promise((resolve, reject)=>{
+    const v = video();
+    if (window.Hls && Hls.isSupported()){
+      const loaderCfg = {};
+      const CustomLoader = makeProxyLoader();
+      if (CustomLoader) loaderCfg.loader = CustomLoader;
+      let settled = false, mediaErrorRetries = 0;
+      hlsInst = new Hls({ enableWorker:true, ...loaderCfg });
+      hlsInst.loadSource(url);
+      hlsInst.attachMedia(v);
+      hlsInst.on(Hls.Events.MANIFEST_PARSED, ()=>{
+        if (settled) return; settled = true;
+        hidePlaceholder(); v.play().catch(()=>{}); setupQualityMenu();
+        resolve();
+      });
+      hlsInst.on(Hls.Events.ERROR, (evt,data)=>{
+        if (!settled){
+          if (data.fatal){
+            settled = true;
+            reject(new Error('hls-fatal:'+(data.response?data.response.code:(data.details||''))));
+          }
+          return;
+        }
+        // بعد بدء التشغيل بنجاح: خطأ ترميز/تشغيل هنا يعني غالبًا أن الجهاز لا يدعم فك ترميز الجودة العالية
+        // الحالية (شائع جدًا مع بث HEVC أو بترميز عالي على أجهزة أندرويد أقدم). بدل ترك الشاشة سوداء بلا
+        // أي تفسير، نحاول الاسترجاع التلقائي، وإن تكرر الفشل ننزل تلقائيًا لأقل جودة متاحة (أكثر توافقًا)
+        if (data.fatal && data.type === Hls.ErrorTypes.MEDIA_ERROR){
+          mediaErrorRetries++;
+          if (mediaErrorRetries <= 2){
+            try{ hlsInst.recoverMediaError(); }catch(e){}
+          } else if (hlsInst.levels && hlsInst.levels.length > 1){
+            const lowest = hlsInst.levels.length - 1; // hls.js يرتب المستويات من الأعلى للأقل عادة عكسيًا حسب الإعداد؛ نأخذ الأدنى فعليًا حسب bitrate
+            let lowestIdx = 0, lowestBitrate = Infinity;
+            hlsInst.levels.forEach((lvl,idx)=>{ if (lvl.bitrate < lowestBitrate){ lowestBitrate = lvl.bitrate; lowestIdx = idx; } });
+            hlsInst.currentLevel = lowestIdx;
+            showToastMsg('الجودة العالية غير مدعومة على هذا الجهاز، تم التحويل لجودة أقل تلقائيًا');
+            try{ hlsInst.recoverMediaError(); }catch(e){}
+            mediaErrorRetries = 0;
+          }
+        } else if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR){
+          try{ hlsInst.startLoad(); }catch(e){}
+        }
+      });
+    } else if (!isBlobWrap && v.canPlayType('application/vnd.apple.mpegurl')){
+      // دعم HLS الأصلي في سفاري (بلا لودر مخصص؛ سفاري يحسب الروابط الفرعية بنفسه استنادًا لعنوان القائمة)
+      v.src = proxied(url);
+      const onOk=()=>{ cleanup(); hidePlaceholder(); v.play().catch(()=>{}); resolve(); };
+      const onErr=()=>{ cleanup(); reject(new Error('native-hls-failed')); };
+      function cleanup(){ v.removeEventListener('loadedmetadata', onOk); v.removeEventListener('error', onErr); }
+      v.addEventListener('loadedmetadata', onOk, {once:true});
+      v.addEventListener('error', onErr, {once:true});
+    } else {
+      reject(new Error('hls-unsupported'));
+    }
+  });
+}
+function tryDash(url){
+  return new Promise((resolve, reject)=>{
+    if (!window.dashjs){ reject(new Error('dash-unsupported')); return; }
+    let settled = false;
+    const v = video();
+    dashInst = dashjs.MediaPlayer().create();
+    // مهم: بدون هذا، dashjs يطلب المانيفست عبر البروكسي بس، لكن أي مقطع صوت/فيديو مذكور بداخله (غالبًا
+    // برابط مباشر لسيرفر المصدر) يروح له طلب مباشر بدون بروكسي، فيُرفض بسبب CORS ويطلع شاشة سوداء
+    // بدون صوت ولا صورة رغم إن المانيفست نفسه نجح يتحمّل. نمرر كل رابط (مانيفست + كل مقطع) عبر البروكسي
+    dashInst.extend('RequestModifier', function(){
+      return { modifyRequestURL: function(u){ return proxied(u); } };
+    }, true);
+    dashInst.updateSettings({ streaming:{ text:{ defaultEnabled:false } } });
+    dashInst.initialize(v, url, true);
+    dashInst.on(dashjs.MediaPlayer.events.CAN_PLAY, ()=>{ if(settled)return; settled=true; hidePlaceholder(); resolve(); });
+    dashInst.on(dashjs.MediaPlayer.events.ERROR, ()=>{ if(settled)return; settled=true; reject(new Error('dash-fatal')); });
+  });
+}
+function tryMpegts(url){
+  return new Promise((resolve, reject)=>{
+    if (!(window.mpegts && mpegts.isSupported())){ reject(new Error('mpegts-unsupported')); return; }
+    const v = video();
+    let settled = false, runtimeRetries = 0;
+    function attach(){
+      mpegtsInst = mpegts.createPlayer({ type:'mse', isLive:true, url, hasAudio:true, hasVideo:true });
+      mpegtsInst.attachMediaElement(v);
+      mpegtsInst.on(mpegts.Events.ERROR, ()=>{
+        try{ mpegtsInst.destroy(); }catch(e){}
+        mpegtsInst = null;
+        if (!settled){ settled = true; reject(new Error('mpegts-fatal')); return; }
+        if (runtimeRetries < 4){
+          runtimeRetries++;
+          setTimeout(()=>{ if (video() === v && v.closest('body')) attach(); }, 900);
+        }
+      });
+      v.addEventListener('loadeddata', ()=>{
+        if (settled) return; settled = true;
+        hidePlaceholder(); v.play().catch(()=>{});
+        resolve();
+      }, {once:true});
+      mpegtsInst.load();
+      mpegtsInst.play();
+    }
+    attach();
+  });
+}
+function tryNative(url){
+  return new Promise((resolve, reject)=>{
+    const v = video();
+    v.src = url;
+    const onOk=()=>{ cleanup(); hidePlaceholder(); v.play().catch(()=>{}); resolve(); };
+    const onErr=()=>{ cleanup(); reject(new Error('native-fatal')); };
+    function cleanup(){ v.removeEventListener('loadedmetadata', onOk); v.removeEventListener('error', onErr); }
+    v.addEventListener('loadedmetadata', onOk, {once:true});
+    v.addEventListener('error', onErr, {once:true});
+  });
+}
+function tryEmbedFallback(url){
+  return new Promise((resolve)=>{ showEmbed(url); resolve(); });
+}
+function showEmbed(url){
+  hidePlaceholder();
+  video().classList.add('hide');
+  document.getElementById('ctrlLayer').classList.add('hide');
+  const f = document.createElement('iframe');
+  f.id='embedFrame'; f.src=url; f.setAttribute('allowfullscreen','true');
+  f.setAttribute('allow','autoplay; fullscreen; encrypted-media');
+  document.getElementById('playerWrap').appendChild(f);
+  document.getElementById('embedToolbar').classList.remove('hide');
+  armEmbedToolbarDim();
+}
+
+// يبني ترتيب محاولات التشغيل المناسب حسب شكل الرابط، بحيث لو فشل محرك ننتقل تلقائيًا للتالي بلا توقف
+function buildEngineList(rawUrl, netUrl, bestGuess, hint){
+  const list = [];
+  // hint = نوع مؤكّد من فحص محتوى الرابط فعليًا (بدل التخمين من الامتداد فقط) — نضعه أولاً بثقة
+  if (hint === 'hls'){
+    list.push({ fn:()=>tryHls(rawUrl) });
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    list.push({ fn:()=>tryNative(netUrl) });
+    return list;
+  }
+  if (hint === 'dash'){
+    list.push({ fn:()=>tryDash(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+    return list;
+  }
+  if (hint === 'mpegts'){
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    list.push({ fn:()=>tryHls(makeTsPlaylistBlob(netUrl), true) });
+    return list;
+  }
+  if (hint === 'file'){
+    list.push({ fn:()=>tryNative(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    return list;
+  }
+  // لا يوجد فحص حاسم (تعذر الفحص نفسه، مثلاً بسبب سرعة اتصال) — نرجع للتخمين من الامتداد كخطة احتياطية
+  if (/\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryHls(rawUrl) });
+    list.push({ fn:()=>tryMpegts(netUrl) });
+    list.push({ fn:()=>tryNative(netUrl) });
+  } else if (/\.mpd(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryDash(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+  } else if (/\.ts(\?|#|$)/i.test(rawUrl)){
+    if (bestGuess === 'live' || isXtreamLiveUrl(rawUrl)){
+      list.push({ fn:()=>tryMpegts(netUrl) });
+      list.push({ fn:()=>tryHls(makeTsPlaylistBlob(netUrl), true) });
+    } else {
+      list.push({ fn:()=>tryHls(makeTsPlaylistBlob(netUrl), true) });
+      list.push({ fn:()=>tryNative(netUrl) });
+    }
+  } else if (/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(rawUrl)){
+    list.push({ fn:()=>tryNative(netUrl) });
+    list.push({ fn:()=>tryHls(rawUrl) });
+  } else {
+    if (isXtreamLiveUrl(rawUrl)){
+      list.push({ fn:()=>tryMpegts(netUrl) });
+      list.push({ fn:()=>tryHls(rawUrl) });
+      list.push({ fn:()=>tryNative(netUrl) });
+    } else {
+      list.push({ fn:()=>tryHls(rawUrl) });
+      list.push({ fn:()=>tryNative(netUrl) });
+      list.push({ fn:()=>tryMpegts(netUrl) });
+    }
+  }
+  list.push({ fn:()=>tryEmbedFallback(netUrl) }); // ملاذ أخير: قد يكون أصلاً صفحة ويب وليس ملف فيديو
+  return list;
+}
+function engineTimeout(ms){
+  return new Promise((_,rej)=>setTimeout(()=>rej(new Error('engine-timeout')), ms));
+}
+async function runEngineChain(originalUrl, engines){
+  for (let i=0; i<engines.length; i++){
+    if (lastUrl !== originalUrl) return true; // المستخدم غيّر المصدر أثناء المحاولة — نتوقف بصمت
+    if (i > 0) showPlaceholder('جارِ تجربة طريقة تشغيل أخرى…');
+    try{
+      await Promise.race([ engines[i].fn(), engineTimeout(12000) ]);
+      return true;
+    }catch(e){
+      stopEngines();
+    }
+  }
+  return lastUrl !== originalUrl;
+}
+
+// فحص حقيقي لمحتوى الرابط قبل أي محاولة تشغيل: نقرأ أول جزء صغير فقط من الرد الفعلي (بايتات قليلة، لا الملف
+// كاملاً، ولا ننتظر نهاية تدفق مباشر لا ينتهي) لنعرف فعليًا ما الذي يُعيده السيرفر، بدل تخمين النوع من
+// الامتداد فقط ثم اكتشاف الفشل بعد مهلة طويلة. هذا يحل مشكلة "صيغة غير مدعومة" الغامضة بشكل جذري.
+async function probeUrl(netUrl){
+  let timer;
+  try{
+    const ctrl = new AbortController();
+    timer = setTimeout(()=>ctrl.abort(), 8000);
+    const res = await fetch(netUrl, { signal: ctrl.signal, cache:'no-store' });
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    let bytes = new Uint8Array(0);
+    if (res.body && res.body.getReader){
+      const reader = res.body.getReader();
+      const chunks = []; let total = 0;
+      while (total < 4096){
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value); total += value.length;
+      }
+      try{ reader.cancel(); }catch(e){}
+      bytes = new Uint8Array(total);
+      let off = 0;
+      for (const c of chunks){ bytes.set(c, off); off += c.length; }
+    } else {
+      const buf = await res.arrayBuffer();
+      bytes = new Uint8Array(buf).slice(0, 4096);
+    }
+    clearTimeout(timer);
+    let printable = 0;
+    for (let i=0;i<bytes.length;i++){ const b=bytes[i]; if (b===9||b===10||b===13||(b>=32&&b<127)) printable++; }
+    const isBinary = bytes.length > 0 && (printable / bytes.length) < 0.85;
+    const isTsSignature = bytes.length >= 188 && bytes[0] === 0x47 && bytes[188] === 0x47; // بايت مزامنة MPEG-TS
+    const snippet = isBinary ? '' : new TextDecoder('utf-8', { fatal:false }).decode(bytes);
+    return { reached:true, status:res.status, ok:res.ok, contentType, snippet, isBinary, isTsSignature, byteLen:bytes.length };
+  }catch(e){
+    clearTimeout(timer);
+    return { reached:false, timedOut: e.name === 'AbortError' };
+  }
+}
+// يحوّل نتيجة الفحص إلى: (أ) نوع محرك مؤكد نبدأ به مباشرة، أو (ب) رسالة خطأ دقيقة تُعرض فورًا بلا أي محاولة تشغيل عبثية
+function classifyProbe(probe){
+  if (!probe.reached){
+    return { errorMsg: probe.timedOut
+      ? 'تعذر تشغيل الرابط: السيرفر لا يستجيب (انتهت المهلة)'
+      : 'تعذر تشغيل الرابط: تعذر الوصول للسيرفر — تحقق من اتصال الإنترنت' };
+  }
+  if (probe.status === 401 || probe.status === 403) return { errorMsg:`تعذر تشغيل الرابط: مرفوض من السيرفر (${probe.status}) — تحقق من صلاحية الاشتراك أو بيانات الدخول` };
+  if (probe.status === 404) return { errorMsg:'تعذر تشغيل الرابط: القناة أو الرابط غير موجود (404)' };
+  if (probe.status === 511) return { errorMsg:'تعذر تشغيل الرابط: الشبكة الحالية تطلب تسجيل دخول أولاً (511) — تحقق من اتصال الواي فاي/بيانات الجوال' };
+  if (probe.status >= 500) return { errorMsg:`تعذر تشغيل الرابط: خطأ من السيرفر (${probe.status})` };
+  if (!probe.ok) return { errorMsg:`تعذر تشغيل الرابط (كود الاستجابة ${probe.status})` };
+
+  if (!probe.isBinary){
+    const s = probe.snippet || '';
+    if (/^\s*#EXTM3U/i.test(s)) return { kind:'hls' };
+    if (/<MPD[\s>]/i.test(s)) return { kind:'dash' };
+    // رسائل خطأ شائعة من بورتالات Xtream Codes: JSON بحقل auth:0، أو نص صريح يشير لعدم الصلاحية
+    if (/"auth"\s*:\s*0/i.test(s) || /\b(invalid|expired|unauthoriz|forbidden|banned|not\s*found)\b/i.test(s)){
+      return { errorMsg:'تعذر تشغيل الرابط: السيرفر يرد برسالة تشير لعدم صلاحية الاشتراك أو بيانات الدخول (أو انتهاء صلاحيته)' };
+    }
+    if (/<html/i.test(s)){
+      return { errorMsg:'تعذر تشغيل الرابط: السيرفر أرجع صفحة ويب بدل تدفق فيديو — تحقق من صحة الرابط' };
+    }
+    return {}; // نص غير حاسم: لا نوع مؤكد ولا خطأ واضح — نترك المحركات تجرب بالترتيب الاحتياطي
+  }
+  if (probe.isTsSignature || probe.contentType.includes('mp2t') || probe.contentType.includes('mpegts')){
+    return { kind:'mpegts' };
+  }
+  if (probe.contentType.includes('video/') || probe.contentType.includes('application/octet-stream')){
+    return { kind:'file' };
+  }
+  return {}; // بيانات ثنائية دون توقيع معروف — نترك المحركات تجرب بالترتيب الاحتياطي
+}
+
+async function loadSource(url, source){
+  lastUrl = url; // الرابط الأصلي كما هو دائمًا (يُستخدم لإعادة المحاولة، وللتحقق من عدم تغييره أثناء المحاولات)
+  lastSource = source || null;
+  state.currentSource = source || null;
+  resetPlayerUI();
+
+  // حارس زمني: لو التشغيل ما بدأ خلال 20 ثانية (تعلّق صامت بلا أي رد)، نعرض رسالة خطأ واضحة بدل ما تبقى
+  // شاشة "جارِ التحميل" واقفة للأبد بدون أي تفسير
+  clearTimeout(loadWatchdog);
+  loadWatchdog = setTimeout(()=>{
+    if (lastUrl === url && !document.getElementById('playerPlaceholder').classList.contains('hide')){
+      showPlaceholder('السيرفر لا يستجيب (تعلّق التحميل بلا رد) — جرّب إعادة المحاولة أو سيرفر آخر', true);
+    }
+  }, 20000);
+
+  // دعم لصق كود iframe كامل (بدل رابط مباشر) — يستخرج src ويشغّله كصفحة مضمّنة بنفس أسلوب showEmbed
+  if (url && /<iframe[\s>]/i.test(url)){
+    const m = url.match(/src=["']([^"']+)["']/i);
+    if (m && m[1]){
+      showEmbed(m[1].startsWith('http') ? m[1] : ('https:'+m[1]));
+      setupQualityMenu();
+      return;
+    }
+  }
+
+  if (!url){ showPlaceholder('تعذر تشغيل هذا الرابط', true); return; }
+  const rawUrl = url.trim();
+  const netUrl = proxied(rawUrl);
+
+  const m = state.currentMatch;
+  video().poster = (m && m.thumbnail_url) || '';
+
+  const forcedType = source && source.stream_type && source.stream_type !== 'auto' ? source.stream_type : null;
+  const extType = forcedType ? null : detectTypeFromExtension(rawUrl);
+  const bestGuess = forcedType || extType || (m && m.type) || 'vod';
+  applyTypeUI(bestGuess);
+  if (!forcedType && /\.m3u8?(\?|#|$)/i.test(rawUrl)){
+    detectHlsType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
+  }
+  if (!forcedType && /\.mpd(\?|#|$)/i.test(rawUrl)){
+    detectDashType(rawUrl).then(detected=>{ if (detected && lastUrl === url) applyTypeUI(detected); });
+  }
+
+  const norm = normalizeEmbedUrl(rawUrl);
+  if (norm.embed){
+    showEmbed(norm.url);
+    setupQualityMenu();
+    return;
+  }
+
+  bindVideoEvents();
+  setupQualityMenu();
+
+  // نفحص محتوى الرابط الحقيقي أولاً قبل أي محاولة تشغيل — هذا يحدد المحرك الصحيح بثقة أو يوقفنا فورًا
+  // برسالة دقيقة عند وجود خطأ واضح (بدل تجربة كل المحركات عبثًا ثم رسالة عامة لا تشرح شيئًا)
+  const probe = await probeUrl(netUrl);
+  if (lastUrl !== url) return; // المستخدم غيّر المصدر أثناء الفحص
+  const classified = classifyProbe(probe);
+  if (classified.errorMsg){
+    showPlaceholder(classified.errorMsg, true);
+    return;
+  }
+
+  const engines = buildEngineList(rawUrl, netUrl, bestGuess, classified.kind);
+  const ok = await runEngineChain(url, engines);
+  if (!ok && lastUrl === url){
+    showPlaceholder('تعذر تشغيل هذا الرابط رغم استجابة السيرفر — قد تكون صيغته غير مدعومة في المشغل', true);
+  }
+}
+function bindVideoEvents(){
+  if (boundOnce) return; boundOnce=true;
+  const v = video();
+  v.addEventListener('play', ()=>{ isPlayingState=true; updatePlayIcons(true); showCtrl(); });
+  v.addEventListener('pause', ()=>{ isPlayingState=false; updatePlayIcons(false); });
+  v.addEventListener('timeupdate', ()=>{
+    if (!v.duration) return;
+    const pct = (v.currentTime/v.duration)*100;
+    document.getElementById('seekBar').value = pct;
+    document.getElementById('timeCur').textContent = fmtSec(v.currentTime);
+    document.getElementById('timeDur').textContent = fmtSec(v.duration);
+  });
+  v.addEventListener('webkitendfullscreen', ()=>{
+    if (isFull){
+      isFull = false;
+      document.getElementById('playerWrap').classList.remove('fs');
+      document.body.classList.remove('fs-lock');
+    }
+  });
+  // لو المستخدم صغّر تطبيق تيليجرام (سحب لأسفل) وقت تشغيل فيديو عادي (مو iframe)، نفعّل "صورة داخل
+  // صورة" (Picture-in-Picture) تلقائيًا عشان يستمر يشوف البث عائمًا فوق باقي التطبيقات بدل ما يتوقف
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden && !v.paused && !document.getElementById('embedFrame')){
+      if (document.pictureInPictureEnabled && !document.pictureInPictureElement){
+        v.requestPictureInPicture().catch(()=>{});
+      }
+    }
+  });
+}
+function fmtSec(s){ if(!s||isNaN(s)) return '0:00'; const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; }
+function updatePlayIcons(playing){
+  const path = playing
+    ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z'
+    : 'M8 5v14l11-7z';
+  document.querySelectorAll('#btnCenterPlay svg path, #btnBarPlay svg path').forEach(p=>p.setAttribute('d',path));
+}
+function togglePlay(){
+  const v = video();
+  if (document.getElementById('embedFrame')) return;
+  if (v.paused) v.play().catch(()=>{}); else v.pause();
+  showCtrl();
+}
+function toggleMute(){
+  const v = video();
+  isMuted = !isMuted; v.muted = isMuted;
+  const path = isMuted
+    ? 'M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z'
+    : 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z';
+  document.querySelector('#btnMute svg path').setAttribute('d', path);
+}
+function seekBy(sec){
+  const v = video(); if (!v.duration) return;
+  v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime+sec));
+  showCtrl();
+}
+function onSeekInput(val){
+  const v = video(); if (!v.duration) return;
+  v.currentTime = (val/100)*v.duration;
+}
+function showCtrl(){
+  const w = document.getElementById('playerWrap');
+  w.classList.add('show');
+  clearTimeout(ctrlTimer);
+  ctrlTimer = setTimeout(()=>w.classList.remove('show'), 3200);
+}
+let lastTap=0;
+function onPlayerTap(e){
+  const now = Date.now();
+  const w = document.getElementById('playerWrap');
+  if (now-lastTap < 300){ lastTap=0; return; } // منع تكرار مع أزرار التخطي
+  lastTap = now;
+  if (w.classList.contains('show')){ clearTimeout(ctrlTimer); w.classList.remove('show'); }
+  else showCtrl();
+}
+function setupQualityMenu(){
+  const btn = document.getElementById('btnQuality');
+  const menu = document.getElementById('qualityMenu');
+
+  // 1) جودات يدوية أضافها الأدمن لهذا السيرفر تحديدًا (روابط بديلة كاملة)
+  const src = state.currentSource;
+  const manualQ = (src && Array.isArray(src.qualities)) ? src.qualities.filter(q=>q && q.url) : [];
+  if (manualQ.length){
+    btn.classList.remove('hide');
+    const activeUrl = lastUrl;
+    const items = [`<div data-mq="-1" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">${src.url===activeUrl?'✓ ':''}الجودة الأساسية</div>`]
+      .concat(manualQ.map((q,i)=>`<div data-mq="${i}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">${q.url===activeUrl?'✓ ':''}${escapeHtml(q.label||('جودة '+(i+1)))}</div>`));
+    menu.innerHTML = items.join('<div style="height:1px;background:var(--border)"></div>');
+    menu.querySelectorAll('[data-mq]').forEach(el=>{
+      el.onclick = (e)=>{
+        e.stopPropagation();
+        menu.classList.add('hide');
+        const idx = parseInt(el.dataset.mq);
+        const targetUrl = idx===-1 ? src.url : manualQ[idx].url;
+        if (targetUrl && targetUrl !== activeUrl) loadSource(targetUrl, src);
+      };
+    });
+    return;
+  }
+
+  // 2) احتياطًا: جودات hls.js التلقائية (تدفق واحد متعدد البتات)
+  if (!hlsInst || !hlsInst.levels || hlsInst.levels.length < 2){ btn.classList.add('hide'); return; }
+  btn.classList.remove('hide');
+  const items = ['<div data-l="-1" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">تلقائي</div>']
+    .concat(hlsInst.levels.map((lvl,i)=>`<div data-l="${i}" style="padding:10px 14px;font-size:12px;font-weight:700;color:#fff;">${lvl.height?lvl.height+'p':Math.round(lvl.bitrate/1000)+'kbps'}</div>`));
+  menu.innerHTML = items.join('<div style="height:1px;background:var(--border)"></div>');
+  menu.querySelectorAll('[data-l]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); hlsInst.currentLevel = parseInt(el.dataset.l); menu.classList.add('hide'); };
+  });
+}
+function toggleQualityMenu(){
+  document.getElementById('aspectMenu').classList.add('hide');
+  document.getElementById('serverMenu').classList.add('hide');
+  document.getElementById('qualityMenu').classList.toggle('hide');
+}
+function toggleAspectMenu(){
+  document.getElementById('qualityMenu').classList.add('hide');
+  document.getElementById('serverMenu').classList.add('hide');
+  document.getElementById('aspectMenu').classList.toggle('hide');
+}
+function setServersButtonVisibility(){
+  const btn = document.getElementById('btnServers');
+  const list = currentTabSources();
+  btn.classList.toggle('hide', list.length <= 1);
+}
+let serverMenuPage = 0;
+const SERVERS_PER_PAGE = 9;
+function renderServerMenuPage(){
+  const panel = document.getElementById('serverMenu');
+  const list = currentTabSources();
+  const activeUrl = lastUrl;
+  const start = serverMenuPage * SERVERS_PER_PAGE;
+  const pageItems = list.slice(start, start + SERVERS_PER_PAGE).map((s,i)=>({ s, realIdx: start + i }));
+  // نضع القناة النشطة حاليًا في الوسط، والباقي يتوزع على جانبيها، بدل ترتيبها الأصلي كما هي
+  const activePos = pageItems.findIndex(it => it.s.url === activeUrl);
+  if (activePos !== -1){
+    const activeItem = pageItems.splice(activePos, 1)[0];
+    pageItems.splice(Math.floor(pageItems.length / 2), 0, activeItem);
+  }
+  const chipStyle = 'padding:10px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;';
+  let html = pageItems.map(({s, realIdx})=>{
+    const active = s.url===activeUrl;
+    return `<div data-srv="${realIdx}" style="${chipStyle}${active?'background:var(--acc);':''}">${active?'✓ ':''}${escapeHtml(s.label||('سيرفر '+(realIdx+1)))}</div>`;
+  }).join('<div style="height:1px;background:var(--border)"></div>');
+  if (list.length > SERVERS_PER_PAGE){
+    // سهم صفحات (ضمن اللوحة نفسها) للتنقل لباقي القنوات لو كانت أكثر من صفحة واحدة
+    html += `<div style="height:1px;background:var(--border)"></div>
+      <div data-srv-next="1" style="${chipStyle}display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+    </div>`;
+  }
+  panel.innerHTML = html;
+  panel.querySelectorAll('[data-srv]').forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); pickSourceFromMenu(parseInt(el.dataset.srv,10)); };
+  });
+  const nextBtn = panel.querySelector('[data-srv-next]');
+  if (nextBtn){
+    nextBtn.onclick = (e)=>{
+      e.stopPropagation();
+      const totalPages = Math.ceil(list.length / SERVERS_PER_PAGE);
+      serverMenuPage = (serverMenuPage + 1) % totalPages;
+      renderServerMenuPage();
+    };
+  }
+}
+function toggleServerMenu(){
+  document.getElementById('aspectMenu').classList.add('hide');
+  document.getElementById('qualityMenu').classList.add('hide');
+  const menu = document.getElementById('serverMenu');
+  const icon = document.getElementById('btnServersIcon');
+  const willOpen = menu.classList.contains('hide');
+  if (willOpen){
+    serverMenuPage = 0;
+    renderServerMenuPage();
+  }
+  menu.classList.toggle('hide');
+  // نقلب اتجاه السهم: للأسفل وهي مفتوحة (ضغطة ثانية تقفلها)، للأعلى وهي مقفلة (ضغطة تفتحها)
+  icon.innerHTML = willOpen
+    ? '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>'   // سهم لأسفل: القائمة مفتوحة الآن
+    : '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6z"/>'; // سهم لأعلى: القائمة مقفلة
+}
+function pickSourceFromMenu(i){
+  const list = currentTabSources();
+  if (!list[i]) return;
+  loadSource(list[i].url, list[i]);
+  document.getElementById('serverMenu').classList.add('hide');
+  document.getElementById('btnServersIcon').innerHTML = '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6z"/>';
+  // نزامن شرائح السيرفرات أسفل المشغل (خارج الفول سكرين) أيضًا لتبقى الحالتان متطابقتين دائمًا
+  document.querySelectorAll('#chipsRow .chip').forEach((c,idx)=>c.classList.toggle('active', idx===i));
+}
+function setAspect(mode){
+  const w = document.getElementById('playerWrap');
+  w.classList.remove('ar-cover','ar-fill','ar-9x16','ar-16x9');
+  if (mode) w.classList.add('ar-'+mode);
+  document.getElementById('aspectMenu').classList.add('hide');
+}
+// زر الأبعاد بشريط الإطار المضمّن (iframe) يدور بين الأوضاع بضغطة واحدة كل مرة، بدل قائمة منسدلة،
+// لأنه أبسط وأسرع بمساحة الشريط الصغيرة فوق الإطار
+const EMBED_ASPECT_CYCLE = ['', 'cover', 'fill', '9x16', '16x9'];
+let embedAspectIdx = 0;
+function cycleEmbedAspect(){
+  embedAspectIdx = (embedAspectIdx + 1) % EMBED_ASPECT_CYCLE.length;
+  setAspect(EMBED_ASPECT_CYCLE[embedAspectIdx]);
+  armEmbedToolbarDim();
+}
+// نظرًا لاستحالة اكتشاف نقرة المستخدم داخل الإطار (iframe) نفسه (قيد أمان المتصفح، موضّح سابقًا)،
+// ما نقدر نسوي "اختفاء عند الضغط بره/ظهور عند الضغط جوه" الطبيعي. البديل العملي: الأزرار تبدأ واضحة،
+// وتخفت تلقائيًا (لا تختفي كليًا) بعد ثوانٍ من عدم التفاعل معها هي بالذات، وترجع واضحة فور أي ضغط عليها
+let embedDimTimer = null;
+function armEmbedToolbarDim(){
+  const bar = document.getElementById('embedToolbar');
+  bar.classList.remove('dim');
+  clearTimeout(embedDimTimer);
+  embedDimTimer = setTimeout(()=>{ bar.classList.add('dim'); }, 4000);
+}
+document.getElementById('aspectMenu').querySelectorAll('[data-ar]').forEach(el=>{
+  el.onclick = (e)=>{ e.stopPropagation(); setAspect(el.dataset.ar); };
+});
+function toggleFS(){
+  if (isFull) { exitFS(); return; }
+  const w = document.getElementById('playerWrap');
+  const v = video();
+  const tg = window.Telegram && window.Telegram.WebApp;
+  isFull = true;
+  document.body.classList.add('fs-lock');
+
+  // على iOS: فول سكرين الفيديو الأصلي مسار مستقل تمامًا يدوّر الجهاز فعليًا عبر النظام نفسه — لا حاجة لأي شيء آخر
+  if (v.webkitEnterFullscreen && !document.getElementById('embedFrame')){
+    try{ v.webkitEnterFullscreen(); showCtrl(); return; }catch(e){}
+  }
+
+  // داخل تيليجرام: نوسّع تطبيق تيليجرام نفسه ليغطي الشاشة (يخفي هيدر تيليجرام وواجهته الخاصة)
+  // ⚠️ عمدًا لا نستخدم tg.lockOrientation ولا screen.orientation.lock هنا: كلاهما لا يُدوّران الجهاز
+  // فعليًا في هذه البيئة (بيئة WebView داخل تطبيق تيليجرام)، بل فقط "يوهمان" سطح عرض صفحتنا بأنه landscape
+  // بينما هيدر تيليجرام الأصلي (الذي لا نتحكم فيه) يبقى كما هو — فتظهر صفحتنا كاملة (الفيديو وأزراره)
+  // مقلوبة 90 درجة بلا أي فائدة حقيقية. الأصدق والأكثر استقرارًا: نترك الفيديو مستقيمًا دائمًا ونكبّره
+  // ليملأ المساحة الحقيقية المتاحة فقط (عبر كلاس .fs وخاصية object-fit:contain، بلا أي تدوير مطلقًا).
+  if (tg && typeof tg.requestFullscreen === 'function'){
+    try{ tg.requestFullscreen(); }catch(e){}
+  }
+
+  // فول سكرين حقيقي على مستوى الجهاز: نطلبه على عنصر <html> الجذري كاملاً وليس على عنصر المشغل فقط.
+  const root = document.documentElement;
+  const reqFS = root.requestFullscreen || root.webkitRequestFullscreen || root.mozRequestFullScreen || root.msRequestFullscreen;
+  if (reqFS){ Promise.resolve(reqFS.call(root)).catch(()=>{}); }
+
+  w.classList.add('fs');
+  if (document.getElementById('embedFrame')){
+    document.getElementById('btnEmbedFS').classList.add('hide');
+    document.getElementById('btnEmbedFSClose').classList.remove('hide');
+  }
+  showCtrl();
+}
+function exitFS(){
+  isFull = false;
+  const w = document.getElementById('playerWrap');
+  w.classList.remove('fs');
+  document.body.classList.remove('fs-lock');
+  if (document.getElementById('embedFrame')){
+    document.getElementById('btnEmbedFS').classList.remove('hide');
+    document.getElementById('btnEmbedFSClose').classList.add('hide');
+  }
+  // ملاحظة: لا نستدعي tg.exitFullscreen() هنا عمدًا — فول سكرين تيليجرام مطلوب على مستوى التطبيق كامل
+  // من بداية التحميل (راجع تهيئة Telegram Mini App)، ونريده يستمر بكل الصفحات لا يتعلق بفول سكرين الفيديو فقط
+  const exitter = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if ((document.fullscreenElement || document.webkitFullscreenElement) && exitter){
+    try{ exitter.call(document); }catch(e){}
+  }
+  if (video().webkitDisplayingFullscreen && video().webkitExitFullscreen){ try{ video().webkitExitFullscreen(); }catch(e){} }
+}
+// ملاحظة: أزلنا عمدًا أي مستمع يستمع لتغيّر حالة الفول سكرين "الأصلي" (document.fullscreenElement أو
+// Telegram.WebApp.isFullscreen) ليُبطل وضعنا الخاص (.fs) تلقائيًا — لأن الفول سكرين الأصلي أساسًا لا يتفعل
+// إطلاقًا داخل هذا الـ WebView (هيدر تيليجرام يبقى ظاهرًا دومًا كما لوحظ)، فكان هذا المستمع يُبطل ضغطة
+// الزر فور حدوثها بلا أي ظهور مرئي على الإطلاق. وضعنا (.fs) الآن مستقل تمامًا ويتحكم فيه زرّانا فقط.
+
+
+/* ============== نقطة البداية: قراءة النادي من رابط الصفحة ============== */
+(function boot(){
+  const qs = new URLSearchParams(location.search);
+  const club = qs.get('club');
+  if (club !== 'milan' && club !== 'barca'){
+    location.href = 'index.html';
+    return;
+  }
+  openClub(club);
+})();
+</script>
+</body>
+</html>
