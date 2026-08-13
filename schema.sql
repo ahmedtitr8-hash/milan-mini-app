@@ -179,13 +179,20 @@ create index if not exists viewer_heartbeats_last_seen_idx on public.viewer_hear
 
 alter table public.viewer_heartbeats enable row level security;
 -- أي زائر (حتى بدون تسجيل دخول) يقدر يرسل/يحدّث نبضة حياته الخاصة بس (بحسب session_id يحدده هو بنفسه)
+-- ملاحظة: السياسات محدّدة الأدوار صراحة (to anon, authenticated) بدل ما تُترك بلا تحديد —
+-- لوحظ بتاريخ 2026-08-13 إن سياسات "with check(true)" بلا تحديد دور رفضت الإدخال فعليًا رغم
+-- سلامتها نظريًا (تأكد بتجربة SQL Editor + curl مباشرة)، وانحل الموضوع فقط بعد حذفها وإعادة
+-- إنشائها بأسماء وصياغة جديدة محدّدة الأدوار. خلّها هيك دائمًا تفاديًا لتكرار المشكلة.
 drop policy if exists "public upsert own heartbeat" on public.viewer_heartbeats;
-create policy "public upsert own heartbeat" on public.viewer_heartbeats for insert with check (true);
 drop policy if exists "public update own heartbeat" on public.viewer_heartbeats;
-create policy "public update own heartbeat" on public.viewer_heartbeats for update using (true) with check (true);
--- القراءة (لوحة الإحصائيات) للأدمن المسجّل دخول فقط
 drop policy if exists "auth read viewer_heartbeats" on public.viewer_heartbeats;
-create policy "auth read viewer_heartbeats" on public.viewer_heartbeats for select using (auth.role() = 'authenticated');
+drop policy if exists "heartbeats_insert" on public.viewer_heartbeats;
+drop policy if exists "heartbeats_update" on public.viewer_heartbeats;
+drop policy if exists "heartbeats_select" on public.viewer_heartbeats;
+create policy "heartbeats_insert" on public.viewer_heartbeats for insert to anon, authenticated with check (true);
+create policy "heartbeats_update" on public.viewer_heartbeats for update to anon, authenticated using (true) with check (true);
+-- القراءة (لوحة الإحصائيات) للأدمن المسجّل دخول فقط
+create policy "heartbeats_select" on public.viewer_heartbeats for select to authenticated using (true);
 
 -- ============================================================
 --  ترقية: الأندية تصير بيانات ديناميكية بجدول clubs بدل قيمتين ثابتتين
@@ -327,12 +334,16 @@ create index if not exists idx_viewer_sessions_last_seen on public.viewer_sessio
 create index if not exists idx_viewer_sessions_session_id on public.viewer_sessions(session_id);
 
 alter table public.viewer_sessions enable row level security;
+-- نفس ملاحظة viewer_heartbeats أعلاه: سياسات محدّدة الأدوار صراحة (to anon, authenticated)
 drop policy if exists "public upsert own viewer_session" on public.viewer_sessions;
-create policy "public upsert own viewer_session" on public.viewer_sessions for insert with check (true);
 drop policy if exists "public update own viewer_session" on public.viewer_sessions;
-create policy "public update own viewer_session" on public.viewer_sessions for update using (true) with check (true);
 drop policy if exists "auth read viewer_sessions" on public.viewer_sessions;
-create policy "auth read viewer_sessions" on public.viewer_sessions for select using (auth.role() = 'authenticated');
+drop policy if exists "sessions_insert" on public.viewer_sessions;
+drop policy if exists "sessions_update" on public.viewer_sessions;
+drop policy if exists "sessions_select" on public.viewer_sessions;
+create policy "sessions_insert" on public.viewer_sessions for insert to anon, authenticated with check (true);
+create policy "sessions_update" on public.viewer_sessions for update to anon, authenticated using (true) with check (true);
+create policy "sessions_select" on public.viewer_sessions for select to authenticated using (true);
 
 -- ============================================================
 --  دالة إحصائيات مجمّعة (تُنفَّذ داخل قاعدة البيانات لسرعتها وصحتها بدل تجميعها بالمتصفح):

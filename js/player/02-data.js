@@ -18,25 +18,12 @@ function getHeartbeatUsername(){
 // لحساب "كم مستخدم استمر بالمشاهدة 30/60/90/120 دقيقة متواصلة" ووقت الذروة بلوحة الأدمن
 const WATCH_SESSION_ID = 'ws_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 const WATCH_SESSION_STARTED_MS = Date.now();
-let _diagCount = 0;
-async function _diagLog(text){
-  if (_diagCount >= 5) return;
-  _diagCount++;
-  try{
-    await fetch(SUPABASE_URL + '/functions/v1/log-event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-  }catch(e){}
-}
 
 async function sendHeartbeat(){
   try{
     const m = state.currentMatch;
     const matchLabel = m ? (m.title || [m.home_team, m.away_team].filter(Boolean).join(' × ')) : null;
     const nowIso = new Date().toISOString();
-    _diagLog('sendHeartbeat استُدعيت — club: ' + (state.club||'?') + ' — sb موجود: ' + (typeof sb !== 'undefined'));
     const { error } = await sb.from('viewer_heartbeats').upsert({
       session_id: HEARTBEAT_SESSION_ID,
       tg_username: getHeartbeatUsername(),
@@ -46,8 +33,7 @@ async function sendHeartbeat(){
       source_label: (state.currentSource && state.currentSource.label) || null,
       last_seen: nowIso
     }, { onConflict: 'session_id' });
-    if (error){ console.error('heartbeat error:', error.message || error); _diagLog('فشل إدخال heartbeat: ' + (error.message||JSON.stringify(error))); }
-    else { _diagLog('نجح إدخال heartbeat لنادي: ' + (state.club||'?')); }
+    if (error) console.error('heartbeat error:', error.message || error);
 
     const durationSeconds = Math.max(0, Math.round((Date.now() - WATCH_SESSION_STARTED_MS)/1000));
     const { error: sErr } = await sb.from('viewer_sessions').upsert({

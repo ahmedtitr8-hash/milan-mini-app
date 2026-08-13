@@ -31,16 +31,35 @@ async function checkGate(){
 }
 document.getElementById('gateInput').addEventListener('keydown', e=>{ if(e.key==='Enter') checkGate(); });
 
+/* أي طلب شبكة هنا ممكن نظريًا يعلّق بلا رد أبدًا أو يفشل فجأة (شبكة متقطعة) —
+   هذا الغلاف يضمن رد دائمًا (نجاح أو مهلة منتهية) خلال مدة معقولة، بدل ما يتعلّق للأبد */
+function withTimeoutAdmin(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=> setTimeout(()=>rej(new Error('انتهت المهلة بلا رد')), ms || 15000))
+  ]);
+}
+
 async function afterLogin(){
   document.getElementById('gate').style.display='none';
-  await loadClubsCache();
-  renderClubGate();
-  const saved = sessionStorage.getItem('zoneClub');
-  if (saved && clubsCache.some(c=>c.slug===saved)) {
-    enterClub(saved);
-  } else {
-    sessionStorage.removeItem('zoneClub');
-    document.getElementById('clubGate').style.display='flex';
+  try{
+    await withTimeoutAdmin(loadClubsCache());
+    renderClubGate();
+    const saved = sessionStorage.getItem('zoneClub');
+    if (saved && clubsCache.some(c=>c.slug===saved)) {
+      enterClub(saved);
+    } else {
+      sessionStorage.removeItem('zoneClub');
+      document.getElementById('clubGate').style.display='flex';
+    }
+  }catch(e){
+    // قبل هذا التعديل: أي خطأ هنا (شبكة متقطعة، طلب فشل...) كان يوقف التنفيذ بصمت
+    // بعد ما شاشة الدخول اختفت، فتبقى الصفحة سوداء بالكامل بلا أي محتوى ظاهر ولا رسالة.
+    // الحين نعرض رسالة واضحة مع زر إعادة محاولة بدل الشاشة السوداء الصامتة.
+    console.error('afterLogin error:', e);
+    document.getElementById('gate').style.display='flex';
+    const msg = document.getElementById('gateMsg');
+    if (msg) msg.textContent = 'تعذر تحميل بيانات الأندية — تحقق من الاتصال وحاول مرة أخرى';
   }
 }
 function toggleTopMenu(){
@@ -64,7 +83,12 @@ async function doLogout(){
 
 // إذا كان هناك جلسة محفوظة من قبل (تسجيل الدخول يبقى فعّالاً بين الزيارات)
 (async function initAuth(){
-  const { data } = await sb.auth.getSession();
-  if (data && data.session){ afterLogin(); }
+  try{
+    const { data } = await sb.auth.getSession();
+    if (data && data.session){ afterLogin(); }
+  }catch(e){
+    console.error('initAuth error:', e);
+    // نسيب شاشة الدخول ظاهرة كما هي افتراضيًا (ما لمسناها أصلاً بهالحالة) — أفضل من شاشة سوداء
+  }
 })();
 
