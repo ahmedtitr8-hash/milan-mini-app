@@ -177,22 +177,23 @@ create table if not exists public.viewer_heartbeats (
 );
 create index if not exists viewer_heartbeats_last_seen_idx on public.viewer_heartbeats(last_seen);
 
+-- ============================================================
+--  ملاحظة مهمة (2026-08-13): سياسات RLS "insert/update" لـ anon على viewer_heartbeats/viewer_sessions
+--  ثبت بالتجربة إنها غير موثوقة على هذا المشروع تحديدًا (تفشل بخطأ 42501 حتى بعد التأكد من
+--  صحة السياسة والصلاحيات والأدوار كاملة عبر فحوصات متعددة، وتعمل فقط لما RLS معطّل كليًا).
+--  بدل ما نعتمد على سياسة insert/update لـ anon، الكتابة الآن تمر حصرًا عبر دالتين محميتين
+--  (security definer) بالأسفل: record_heartbeat() و record_watch_session(). لا حاجة لسياسة
+--  insert/update على الإطلاق بعد الآن — نكتفي بسياسة select للأدمن فقط.
+-- ============================================================
 alter table public.viewer_heartbeats enable row level security;
--- أي زائر (حتى بدون تسجيل دخول) يقدر يرسل/يحدّث نبضة حياته الخاصة بس (بحسب session_id يحدده هو بنفسه)
--- ملاحظة: السياسات محدّدة الأدوار صراحة (to anon, authenticated) بدل ما تُترك بلا تحديد —
--- لوحظ بتاريخ 2026-08-13 إن سياسات "with check(true)" بلا تحديد دور رفضت الإدخال فعليًا رغم
--- سلامتها نظريًا (تأكد بتجربة SQL Editor + curl مباشرة)، وانحل الموضوع فقط بعد حذفها وإعادة
--- إنشائها بأسماء وصياغة جديدة محدّدة الأدوار. خلّها هيك دائمًا تفاديًا لتكرار المشكلة.
 drop policy if exists "public upsert own heartbeat" on public.viewer_heartbeats;
 drop policy if exists "public update own heartbeat" on public.viewer_heartbeats;
 drop policy if exists "auth read viewer_heartbeats" on public.viewer_heartbeats;
 drop policy if exists "heartbeats_insert" on public.viewer_heartbeats;
 drop policy if exists "heartbeats_update" on public.viewer_heartbeats;
 drop policy if exists "heartbeats_select" on public.viewer_heartbeats;
-create policy "heartbeats_insert" on public.viewer_heartbeats for insert to anon, authenticated with check (true);
-create policy "heartbeats_update" on public.viewer_heartbeats for update to anon, authenticated using (true) with check (true);
--- القراءة (لوحة الإحصائيات) للأدمن المسجّل دخول فقط
 create policy "heartbeats_select" on public.viewer_heartbeats for select to authenticated using (true);
+revoke insert, update, delete on public.viewer_heartbeats from anon, authenticated;
 
 -- ============================================================
 --  ترقية: الأندية تصير بيانات ديناميكية بجدول clubs بدل قيمتين ثابتتين
@@ -337,13 +338,81 @@ alter table public.viewer_sessions enable row level security;
 -- نفس ملاحظة viewer_heartbeats أعلاه: سياسات محدّدة الأدوار صراحة (to anon, authenticated)
 drop policy if exists "public upsert own viewer_session" on public.viewer_sessions;
 drop policy if exists "public update own viewer_session" on public.viewer_sessions;
+-- نفس المبدأ أعلاه بالضبط: لا سياسة insert/update لـ anon، الكتابة تمر عبر record_watch_session()
+drop policy if exists "public upsert own viewer_session" on public.viewer_sessions;
+drop policy if exists "public update own viewer_session" on public.viewer_sessions;
 drop policy if exists "auth read viewer_sessions" on public.viewer_sessions;
 drop policy if exists "sessions_insert" on public.viewer_sessions;
 drop policy if exists "sessions_update" on public.viewer_sessions;
 drop policy if exists "sessions_select" on public.viewer_sessions;
-create policy "sessions_insert" on public.viewer_sessions for insert to anon, authenticated with check (true);
-create policy "sessions_update" on public.viewer_sessions for update to anon, authenticated using (true) with check (true);
 create policy "sessions_select" on public.viewer_sessions for select to authenticated using (true);
+revoke insert, update, delete on public.viewer_sessions from anon, authenticated;
+
+-- ============================================================
+--  دالتا الكتابة الآمنة (تحلّان محل الإدخال المباشر بالجدولين):
+--  security definer = تُنفَّذ بصلاحية مالك الدالة (يتخطى RLS داخليًا وبشكل متحكّم به)،
+--  وبالتالي anon يقدر يستدعيها (execute) بدون ما يحتاج أي صلاحية insert/update مباشرة على الجدول.
+--  هذا أكثر أمانًا كمان: anon ما يقدر يكتب أي عمود يبيه، بس اللي الدالة تسمح فيه بالضبط.
+-- ============================================================
+create or replace function public.record_heartbeat(
+  p_session_id    text,
+  p_tg_username   text default null,
+  p_club          text default null,
+  p_match_id      uuid default null,
+  p_match_label   text default null,
+  p_source_label  text default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.viewer_heartbeats (session_id, tg_username, club, match_id, match_label, source_label, last_seen)
+  values (p_session_id, p_tg_username, p_club, p_match_id, p_match_label, p_source_label, now())
+  on conflict (session_id) do update set
+    tg_username  = excluded.tg_username,
+    club         = excluded.club,
+    match_id     = excluded.match_id,
+    match_label  = excluded.match_label,
+    source_label = excluded.source_label,
+    last_seen    = excluded.last_seen;
+end;
+$$;
+grant execute on function public.record_heartbeat(text,text,text,uuid,text,text) to anon, authenticated;
+
+create or replace function public.record_watch_session(
+  p_watch_session_id text,
+  p_session_id        text,
+  p_tg_username        text default null,
+  p_club               text default null,
+  p_match_id           uuid default null,
+  p_match_label        text default null,
+  p_source_label       text default null,
+  p_duration_seconds   int default 0
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.viewer_sessions
+    (watch_session_id, session_id, tg_username, club, match_id, match_label, source_label, last_seen, duration_seconds)
+  values
+    (p_watch_session_id, p_session_id, p_tg_username, p_club, p_match_id, p_match_label, p_source_label, now(), greatest(0, p_duration_seconds))
+  on conflict (watch_session_id) do update set
+    session_id       = excluded.session_id,
+    tg_username      = excluded.tg_username,
+    club             = excluded.club,
+    match_id         = excluded.match_id,
+    match_label      = excluded.match_label,
+    source_label     = excluded.source_label,
+    last_seen        = excluded.last_seen,
+    duration_seconds = excluded.duration_seconds;
+end;
+$$;
+grant execute on function public.record_watch_session(text,text,text,text,uuid,text,text,int) to anon, authenticated;
+
+notify pgrst, 'reload schema';
 
 -- ============================================================
 --  دالة إحصائيات مجمّعة (تُنفَّذ داخل قاعدة البيانات لسرعتها وصحتها بدل تجميعها بالمتصفح):

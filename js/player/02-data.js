@@ -23,30 +23,30 @@ async function sendHeartbeat(){
   try{
     const m = state.currentMatch;
     const matchLabel = m ? (m.title || [m.home_team, m.away_team].filter(Boolean).join(' × ')) : null;
-    const nowIso = new Date().toISOString();
-    const { error } = await sb.from('viewer_heartbeats').upsert({
-      session_id: HEARTBEAT_SESSION_ID,
-      tg_username: getHeartbeatUsername(),
-      club: state.club || null,
-      match_id: m ? m.id : null,
-      match_label: matchLabel,
-      source_label: (state.currentSource && state.currentSource.label) || null,
-      last_seen: nowIso
-    }, { onConflict: 'session_id' });
+    const durationSeconds = Math.max(0, Math.round((Date.now() - WATCH_SESSION_STARTED_MS)/1000));
+
+    // الكتابة تمر عبر دالتين محميتين (RPC) بدل الإدخال المباشر بالجدول —
+    // انظر الملاحظة بملف schema.sql (2026-08-13) لسبب هذا التغيير
+    const { error } = await sb.rpc('record_heartbeat', {
+      p_session_id: HEARTBEAT_SESSION_ID,
+      p_tg_username: getHeartbeatUsername(),
+      p_club: state.club || null,
+      p_match_id: m ? m.id : null,
+      p_match_label: matchLabel,
+      p_source_label: (state.currentSource && state.currentSource.label) || null
+    });
     if (error) console.error('heartbeat error:', error.message || error);
 
-    const durationSeconds = Math.max(0, Math.round((Date.now() - WATCH_SESSION_STARTED_MS)/1000));
-    const { error: sErr } = await sb.from('viewer_sessions').upsert({
-      watch_session_id: WATCH_SESSION_ID,
-      session_id: HEARTBEAT_SESSION_ID,
-      tg_username: getHeartbeatUsername(),
-      club: state.club || null,
-      match_id: m ? m.id : null,
-      match_label: matchLabel,
-      source_label: (state.currentSource && state.currentSource.label) || null,
-      last_seen: nowIso,
-      duration_seconds: durationSeconds
-    }, { onConflict: 'watch_session_id' });
+    const { error: sErr } = await sb.rpc('record_watch_session', {
+      p_watch_session_id: WATCH_SESSION_ID,
+      p_session_id: HEARTBEAT_SESSION_ID,
+      p_tg_username: getHeartbeatUsername(),
+      p_club: state.club || null,
+      p_match_id: m ? m.id : null,
+      p_match_label: matchLabel,
+      p_source_label: (state.currentSource && state.currentSource.label) || null,
+      p_duration_seconds: durationSeconds
+    });
     if (sErr) console.error('viewer_sessions error:', sErr.message || sErr);
   }catch(e){ console.error('heartbeat error:', e); }
 }
