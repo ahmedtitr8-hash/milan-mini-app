@@ -18,10 +18,10 @@ function getHeartbeatUsername(){
 // لحساب "كم مستخدم استمر بالمشاهدة 30/60/90/120 دقيقة متواصلة" ووقت الذروة بلوحة الأدمن
 const WATCH_SESSION_ID = 'ws_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 const WATCH_SESSION_STARTED_MS = Date.now();
-let _diagSent = false;
+let _diagCount = 0;
 async function _diagLog(text){
-  if (_diagSent) return; // مرة وحدة بس لكل جلسة، عشان ما نزعج بتكرار
-  _diagSent = true;
+  if (_diagCount >= 5) return;
+  _diagCount++;
   try{
     await fetch(SUPABASE_URL + '/functions/v1/log-event', {
       method: 'POST',
