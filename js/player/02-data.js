@@ -18,11 +18,25 @@ function getHeartbeatUsername(){
 // لحساب "كم مستخدم استمر بالمشاهدة 30/60/90/120 دقيقة متواصلة" ووقت الذروة بلوحة الأدمن
 const WATCH_SESSION_ID = 'ws_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 const WATCH_SESSION_STARTED_MS = Date.now();
+let _diagSent = false;
+async function _diagLog(text){
+  if (_diagSent) return; // مرة وحدة بس لكل جلسة، عشان ما نزعج بتكرار
+  _diagSent = true;
+  try{
+    await fetch(SUPABASE_URL + '/functions/v1/log-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+  }catch(e){}
+}
+
 async function sendHeartbeat(){
   try{
     const m = state.currentMatch;
     const matchLabel = m ? (m.title || [m.home_team, m.away_team].filter(Boolean).join(' × ')) : null;
     const nowIso = new Date().toISOString();
+    _diagLog('sendHeartbeat استُدعيت — club: ' + (state.club||'?') + ' — sb موجود: ' + (typeof sb !== 'undefined'));
     const { error } = await sb.from('viewer_heartbeats').upsert({
       session_id: HEARTBEAT_SESSION_ID,
       tg_username: getHeartbeatUsername(),
@@ -32,7 +46,8 @@ async function sendHeartbeat(){
       source_label: (state.currentSource && state.currentSource.label) || null,
       last_seen: nowIso
     }, { onConflict: 'session_id' });
-    if (error) console.error('heartbeat error:', error.message || error);
+    if (error){ console.error('heartbeat error:', error.message || error); _diagLog('فشل إدخال heartbeat: ' + (error.message||JSON.stringify(error))); }
+    else { _diagLog('نجح إدخال heartbeat لنادي: ' + (state.club||'?')); }
 
     const durationSeconds = Math.max(0, Math.round((Date.now() - WATCH_SESSION_STARTED_MS)/1000));
     const { error: sErr } = await sb.from('viewer_sessions').upsert({
@@ -80,9 +95,6 @@ async function openClub(club){
     await loadClubInfo(club);
     await renderBarcaHub();
   }catch(e){
-    // قبل هذا التعديل: أي خطأ هنا (شبكة متقطعة، طلب فشل...) كان يوقف التنفيذ بصمت ويسيب
-    // الشاشة الافتراضية (عنوان "المباراة" + دوّارة "جارِ تحميل البث...") متجمدة للأبد بدون
-    // أي رسالة، وكأنها شاشة معطوبة. الحين نظهر رسالة واضحة مع زر إعادة محاولة بدل التجمّد الصامت.
     console.error('openClub error:', e);
     document.getElementById('playerTitle').textContent = CLUB_NAMES[club] || '';
     const p = document.getElementById('playerPlaceholder');
@@ -120,7 +132,6 @@ let matchGeneration = 0;
 
 async function loadBarcaMatch(matchId){
   const myMatchGen = ++matchGeneration;
-  // نوقف أي تشغيل حالي فورًا (مو ننتظر الشبكة) عشان ما يستمر البث القديم شغال بالخلفية
   destroyPlayer();
   await resetPlayerUI();
   if (myMatchGen !== matchGeneration) return;
@@ -163,4 +174,3 @@ async function loadClubInfo(club){
 }
 
 function backToClubs(){ location.href = 'index.html'; }
-
