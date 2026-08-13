@@ -143,3 +143,15 @@ body.fs-lock .top-bar,body.fs-lock .nav-bar,body.fs-lock .below-player,body.fs-l
 .hub-t{font-size:15px;font-weight:900;color:var(--acc);}
 .hub-d{font-size:10px;color:var(--mute);}
 .hub-live{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:900;color:var(--live);white-space:nowrap;}
+
+/* ===== دعم الشاشات الكبيرة (تابلت/ديسكتوب) ===== */
+@media (min-width:600px){
+  html,body{background:#000;}
+  #tickerBar{max-width:480px;left:50%;right:auto;margin-left:-240px;}
+  #app{max-width:480px;left:50%;right:auto;margin-left:-240px;
+    box-shadow:0 0 80px rgba(0,0,0,.7);border-left:1px solid var(--border);border-right:1px solid var(--border);}
+}
+@media (min-width:1024px){
+  #tickerBar{max-width:520px;margin-left:-260px;}
+  #app{max-width:520px;margin-left:-260px;}
+}

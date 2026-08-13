@@ -133,3 +133,15 @@ body.fs-lock .embed-toolbar{z-index:10000;}
 .nav-item span{font-size:11px;font-weight:700;}
 .nav-item.active{color:var(--acc);}
 
+/* ===== دعم الشاشات الكبيرة (تابلت/ديسكتوب) ===== */
+@media (min-width:600px){
+  html,body{background:#000;}
+  #tickerBar{max-width:480px;left:50%;right:auto;margin-left:-240px;}
+  #app{max-width:480px;left:50%;right:auto;margin-left:-240px;
+    box-shadow:0 0 80px rgba(0,0,0,.7);border-left:1px solid var(--border);border-right:1px solid var(--border);}
+}
+@media (min-width:1024px){
+  #tickerBar{max-width:520px;margin-left:-260px;}
+  #app{max-width:520px;margin-left:-260px;}
+}
+
