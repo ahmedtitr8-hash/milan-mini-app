@@ -1,0 +1,157 @@
+:root{ --acc:#E87B00; --bg:#0b0b0b; --card:#151515; --card2:#1d1d1d; --border:#282828; --txt:#EEE; --mute:#8a8a8a; --danger:#D32F2F; --ok:#2E7D32; }
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{overflow-x:hidden;max-width:100%;}
+body{background:var(--bg);color:var(--txt);font-family:'Cairo',sans-serif;min-height:100vh;}
+button{font-family:inherit;cursor:pointer;border:none;}
+input,select,textarea{font-family:inherit;background:var(--card2);border:1px solid var(--border);color:var(--txt);
+  border-radius:8px;padding:9px 10px;font-size:13px;width:100%;}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--acc);}
+.hide{display:none!important;}
+label{font-size:11.5px;color:var(--mute);display:block;margin-bottom:4px;}
+.field{margin-bottom:10px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.btn{padding:10px 18px;border-radius:9px;font-weight:800;font-size:13px;color:#fff;background:var(--acc);}
+.btn.secondary{background:var(--card2);color:var(--txt);border:1px solid var(--border);}
+.btn.danger{background:var(--danger);}
+.btn.small{padding:6px 12px;font-size:12px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
+
+/* ===== شاشة الدخول ===== */
+#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#181818,#070707);}
+#gate .box{width:280px;text-align:center;}
+#gate h1{font-size:22px;font-weight:900;margin-bottom:18px;}
+#gate h1 span{color:var(--acc);}
+
+/* ===== شاشة اختيار النادي ===== */
+#clubGate{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  background:radial-gradient(ellipse at 50% 30%,#181818,#070707);padding:80px 20px 40px;overflow-y:auto;}
+#globalSettingsBtn{position:absolute;top:18px;left:18px;width:40px;height:40px;border-radius:50%;background:var(--card);
+  border:1px solid var(--border);font-size:18px;cursor:pointer;color:#fff;z-index:2;}
+#homeSectionsGateBtn{position:absolute;top:18px;left:68px;width:40px;height:40px;border-radius:50%;background:var(--card);
+  border:1px solid var(--border);font-size:18px;cursor:pointer;color:#fff;z-index:2;}
+#globalStatsGateBtn{position:absolute;top:18px;left:118px;width:40px;height:40px;border-radius:50%;background:var(--card);
+  border:1px solid var(--border);font-size:18px;cursor:pointer;color:#fff;z-index:2;}
+#clubPickRow{display:flex;flex-wrap:wrap;gap:22px;justify-content:center;max-width:640px;}
+.club-pick{position:relative;width:150px;height:170px;border-radius:18px;background:var(--card);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+.club-pick .crest{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:24px;overflow:hidden;}
+.club-pick .crest img{width:100%;height:100%;object-fit:contain;}
+.club-pick b{font-size:15px;}
+.club-pick .del-club{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:#ff8080;}
+.club-pick.add-club{border:1.5px dashed var(--border);background:transparent;color:var(--mute);font-weight:800;font-size:14px;gap:8px;}
+.club-pick.add-club .plus{font-size:30px;line-height:1;color:var(--acc);}
+
+/* ===== لوحة التحكم ===== */
+#panel{display:none;}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;row-gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--bg);z-index:10;}
+.top .crest{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;background:var(--acc);flex-shrink:0;}
+.top h2{font-size:16px;font-weight:800;flex:1 1 auto;min-width:80px;}
+.wrap{max-width:920px;margin:0 auto;padding:18px 20px 60px;}
+.mlist{display:flex;flex-direction:column;gap:10px;}
+.mcard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px 10px;margin-bottom:10px;}
+.mcard-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.mcard-top .badges{display:flex;gap:6px;flex-wrap:wrap;}
+.mcard-teams{display:flex;align-items:center;justify-content:center;gap:14px;padding-bottom:10px;}
+.mcard-teams img{width:38px;height:38px;object-fit:contain;border-radius:8px;background:var(--card2);flex-shrink:0;}
+.mcard-teams .info{text-align:center;min-width:0;max-width:200px;}
+.mcard-teams .info b{font-size:14px;display:block;line-height:1.35;}
+.mcard-teams .info small{color:var(--mute);font-size:11px;display:block;margin-top:4px;}
+.mcard-acts{display:flex;gap:8px;border-top:1px solid var(--border);padding-top:10px;}
+.mcard-acts .btn{flex:1;}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;}
+.badge.live{background:var(--danger);color:#fff;}
+.badge.upcoming{background:#444;color:#fff;}
+.badge.finished{background:#2a2a2a;color:var(--mute);}
+.section-title{font-size:14px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;justify-content:between;}
+.sub-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.src-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px;}
+.src-card .src-top{display:flex;gap:8px;margin-bottom:8px;}
+.src-card .src-top select{width:110px;flex-shrink:0;}
+.src-card .src-top input{flex:1;}
+.src-card .src-bottom{display:flex;gap:8px;align-items:center;}
+.src-card .src-bottom input{flex:1;}
+.src-card .src-bottom input[type=number]{max-width:70px;flex:none;}
+.src-card .del-btn{width:34px;height:34px;flex-shrink:0;border-radius:8px;background:var(--danger);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.src-card .src-type-row{display:flex;gap:8px;margin-bottom:8px;}
+.src-card .src-type-row select{flex-shrink:0;width:150px;}
+.src-card .src-type-hint{font-size:10.5px;color:var(--mute);flex:1;align-self:center;}
+.qual-box{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px;}
+.qual-box .qual-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.qual-box .qual-head span{font-size:11px;font-weight:800;color:var(--mute);}
+.qual-row{display:flex;gap:6px;margin-bottom:6px;}
+.qual-row input{flex:1;}
+.qual-row input.qual-label{max-width:100px;flex:none;}
+.qual-row .del-btn{width:30px;height:30px;font-size:13px;}
+.btn.tiny{padding:5px 10px;font-size:11px;border-radius:7px;}
+
+.thumb-preview{width:100%;aspect-ratio:16/9;border-radius:10px;background:var(--card2);border:1px solid var(--border);
+  margin-top:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:11px;}
+.thumb-preview img{width:100%;height:100%;object-fit:cover;}
+.form-section{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;}
+.form-section h4{font-size:12px;font-weight:800;color:var(--acc);margin-bottom:10px;}
+.stats-row{display:flex;gap:10px;margin:14px 0;}
+.stat-box{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;}
+.stat-box b{font-size:20px;display:block;}
+.stat-box span{font-size:11px;color:var(--mute);}
+.filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.filter-chip{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--mute);}
+.filter-chip.active{background:var(--acc);color:#fff;border-color:var(--acc);}
+.filter-count{display:inline-block;min-width:16px;padding:0 2px;font-size:10.5px;font-weight:800;opacity:.8;}
+.club-logo-box{display:flex;gap:10px;align-items:center;margin-bottom:18px;background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px;}
+.club-logo-box img{width:40px;height:40px;object-fit:contain;border-radius:50%;background:var(--card2);flex-shrink:0;}
+.club-logo-box .field{flex:1;margin-bottom:0;}
+.chk-list{display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;}
+.chk-item{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--card2);padding:6px 10px;border-radius:8px;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;
+  padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;}
+#toast.show{opacity:1;}
+#toast.err{background:var(--danger);}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-start;justify-content:center;
+  overflow-y:auto;padding:20px 10px;z-index:50;}
+.modal-bg.on{display:flex;}
+.modal{width:100%;max-width:560px;background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:16px;}
+.modal-head{position:sticky;top:0;margin:-16px -16px 14px;padding:14px 16px;background:var(--bg);
+  border-bottom:1px solid var(--border);border-radius:16px 16px 0 0;display:flex;align-items:center;gap:10px;z-index:2;}
+.modal-head h3{font-size:14.5px;font-weight:800;margin:0;flex:1;min-width:0;}
+.back-btn{width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--border);
+  color:#fff;font-size:15px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+.top .btn.secondary{padding:8px 14px;}
+
+/* ===== قائمة منسدلة واحدة بدل الأزرار المتعددة أعلى اللوحة ===== */
+.top-menu{position:relative;flex-shrink:0;}
+.top-menu-list{display:none;position:absolute;top:calc(100% + 8px);left:0;background:var(--bg);border:1px solid var(--border);
+  border-radius:12px;padding:6px;width:210px;max-width:80vw;flex-direction:column;gap:2px;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.55);}
+.top-menu-list.on{display:flex;}
+.top-menu-list button{display:flex;align-items:center;background:transparent;color:var(--txt);text-align:right;padding:10px 12px;
+  border-radius:8px;font-size:12.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  width:100%;height:auto;min-height:0;}
+.top-menu-list button:hover{background:var(--card2);}
+
+/* روابط/عناوين URL تُكتب دائمًا LTR حتى داخل صفحة RTL — بدون هذا، الروابط الطويلة تظهر معكوسة بصريًا
+   ويظهر لك آخر جزء منها (مثل ?utm_content=...) بدل بدايتها، فيبدو الحقل وكأنه فيه خلل أو قيمة غريبة */
+.url-field{direction:ltr;text-align:left;}
+
+/* ===== حماية عامة ضد أي تجاوز أفقي بأي قسم بالصفحة (سبب مشكلة انقسام النوافذ المنبثقة) ===== */
+.row2,.row3,.src-card .src-top,.src-card .src-bottom,.src-card .src-type-row,.qual-row,.filter-row,.club-logo-box,.stats-row,.mcard,.mcard-teams,.top{min-width:0;}
+.row2 > *,.row3 > *,.club-logo-box .field{min-width:0;}
+input,select,textarea{min-width:0;}
+h1,h2,h3,h4,p,span,b,label,small{overflow-wrap:break-word;word-break:break-word;}
+
+@media (max-width:640px){
+  .top{padding:12px 14px;gap:8px;row-gap:8px;flex-wrap:nowrap;}
+  .top h2{font-size:14px;}
+  .modal-bg{padding:16px 8px;}
+  .modal{padding:16px;}
+  .stats-row{flex-wrap:wrap;}
+  .stat-box{min-width:calc(50% - 5px);}
+  /* تبقى جنب بعض بعمودين حتى على الجوال (مو تكديس عامودي) — بس أصغر وأخف عشان تنعصر بعرض الشاشة */
+  .row2{grid-template-columns:1fr 1fr;gap:8px;}
+  .row3{grid-template-columns:1fr 1fr;gap:8px;}
+  .row2 label,.row3 label{font-size:11px;margin-bottom:3px;}
+  .row2 input,.row3 input,.row2 select,.row3 select{padding:7px 8px;font-size:12px;}
+}
