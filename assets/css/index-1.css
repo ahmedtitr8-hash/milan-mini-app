@@ -1,0 +1,144 @@
+:root{
+  --acc:#E87B00; --acc2:#FF9520;
+  --bg:#070707; --card:#141414; --card2:#1c1c1c; --border:#262626;
+  --txt:#F2F2F2; --mute:#7a7a7a; --live:#D32F2F; --tg-safe-top:0px;
+}
+body[data-club="milan"]{ --acc:#E2101A; --acc2:#FF4747; }
+#tickerBar{position:fixed;top:0;left:0;right:0;height:var(--tg-safe-top);min-height:0;overflow:hidden;
+  background:#000;z-index:10000;display:flex;align-items:center;}
+body.no-ticker #tickerBar{display:none;}
+#tickerBar{align-items:flex-end;justify-content:center;padding-bottom:8px;}
+#tickerText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:11px;font-weight:800;color:#fff;}
+body[data-club="barca"]{ --acc:#A50044; --acc2:#1E6DE0; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--txt);font-family:'Cairo',sans-serif;height:100%;overflow:hidden;}
+img{display:block;}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer;}
+.hide{display:none!important;}
+::-webkit-scrollbar{display:none;}
+
+/* ===== شاشات ===== */
+#app{position:relative;display:flex;flex-direction:column;height:100%;}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg);}
+.screen.on{display:flex;}
+
+/* ===== شاشة اختيار النادي ===== */
+#screenClubs{display:flex;flex-direction:column;align-items:center;justify-content:safe center;overflow-y:auto;padding:calc(40px + var(--tg-safe-top)) 0 20px;gap:28px;background:radial-gradient(ellipse at 50% 30%,#161616 0%,#070707 65%);}
+.zone-word{font-size:34px;font-weight:900;letter-spacing:2px;color:#fff;flex-shrink:0;}
+.zone-word span{color:var(--acc);}
+#homeSections{display:flex;flex-direction:column;align-items:center;gap:28px;width:100%;}
+.club-row{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;padding:0 20px;}
+.home-video-wrap{width:100%;max-width:340px;padding:0 20px;}
+.home-video-wrap video{width:100%;border-radius:16px;display:block;background:#000;}
+.home-banner{display:block;width:100%;max-width:340px;margin:0 20px;border-radius:16px;overflow:hidden;}
+.home-banner img{width:100%;display:block;}
+.footer-zone{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 20px;margin-top:4px;}
+.tg-btn{display:flex;align-items:center;gap:8px;width:100%;max-width:280px;padding:11px 16px;border-radius:12px;
+  background:rgba(255,255,255,.06);border:1px solid var(--border);color:#fff;text-decoration:none;font-size:13px;font-weight:700;justify-content:center;}
+.tg-btn svg{width:18px;height:18px;fill:#2AABEE;flex-shrink:0;}
+.rights-line{font-size:11px;color:var(--mute);margin-top:2px;}
+.club-btn{width:132px;height:160px;border-radius:20px;background:var(--card);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:transform .15s;}
+.club-btn:active{transform:scale(.95);}
+.club-crest{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:26px;color:#fff;}
+.pick-logo{height:64px;width:auto;max-width:110px;object-fit:contain;}
+.club-name{font-size:15px;font-weight:800;}
+.club-sub{font-size:11px;color:var(--mute);}
+
+/* ===== هيدر الأندية ===== */
+.top-bar{display:flex;align-items:center;gap:10px;padding:calc(14px + var(--tg-safe-top)) 14px 10px;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border);}
+.embed-toolbar{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;gap:6px;transition:opacity .4s;}
+.embed-toolbar.dim{opacity:.35;}
+.embed-toolbar:not(.hide){display:flex;}
+.embed-toolbar button{width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,.6);border:none;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.embed-toolbar button svg{width:17px;height:17px;fill:#fff;}
+body.fs-lock .embed-toolbar{z-index:10000;}
+.icon-btn{width:34px;height:34px;border-radius:10px;background:var(--card);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn svg{width:19px;height:19px;fill:#fff;}
+.top-crest{height:28px;width:auto;max-width:64px;object-fit:contain;flex-shrink:0;}
+.top-title{font-size:16px;font-weight:800;flex:1;}
+.top-zone{font-size:12px;font-weight:800;color:var(--acc);letter-spacing:1px;}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:0 10px;margin:0 14px 4px;height:0;overflow:hidden;transition:height .2s,margin .2s;}
+.search-box.on{height:40px;margin:10px 14px 4px;}
+.search-box svg{width:16px;height:16px;fill:var(--mute);flex-shrink:0;}
+.search-box input{flex:1;background:none;border:none;color:var(--txt);font-size:13px;height:100%;padding:0;}
+.search-box input:focus{outline:none;}
+.play-dot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
+.match-card:active .play-dot,.banner-wrap:active .play-dot{opacity:1;}
+.play-dot .circ{width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.7);}
+.play-dot svg{width:16px;height:16px;fill:#fff;}
+.banner-wrap .play-dot .circ{width:56px;height:56px;}
+.banner-wrap .play-dot svg{width:22px;height:22px;}
+.banner-carousel{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:12px 0;padding:0 14px;}
+.banner-carousel .banner-wrap{scroll-snap-align:start;flex:0 0 100%;margin:0;}
+.banner-dots{display:flex;justify-content:center;gap:5px;margin-top:8px;}
+.banner-dots .dot{width:5px;height:5px;border-radius:50%;background:var(--border);transition:.2s;}
+.banner-dots .dot.on{width:16px;border-radius:4px;background:var(--acc);}
+.cat-head .see-all{font-size:11px;color:var(--mute);font-weight:700;}
+
+/* ===== محتوى قابل للتمرير ===== */
+.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px;}
+
+/* ===== البنر ===== */
+.banner-wrap{position:relative;margin:12px 14px;border-radius:18px;overflow:hidden;aspect-ratio:16/9;background:var(--card);box-shadow:0 10px 30px -12px rgba(0,0,0,.6);}
+.banner-wrap img{width:100%;height:100%;object-fit:cover;}
+.banner-tag{position:absolute;top:12px;right:12px;background:var(--live);color:#fff;font-size:11px;font-weight:800;
+  padding:5px 12px;border-radius:7px;display:flex;align-items:center;gap:5px;letter-spacing:.3px;}
+.banner-tag.upn{background:rgba(20,20,20,.75);backdrop-filter:blur(4px);}
+.bdot{width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1.6s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.banner-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.92) 2%,rgba(0,0,0,.55) 32%,transparent 65%);}
+.banner-title{position:absolute;bottom:34px;right:14px;left:14px;font-size:19px;font-weight:800;color:#fff;line-height:1.35;
+  text-shadow:0 2px 10px rgba(0,0,0,.5);}
+.banner-label{position:absolute;bottom:12px;right:14px;left:14px;font-size:12px;font-weight:700;color:#d9d9d9;
+  display:flex;align-items:center;gap:6px;}
+.banner-label svg{width:13px;height:13px;fill:var(--acc2);flex-shrink:0;}
+
+/* ===== صفوف الفئات ===== */
+.cat-block{margin:20px 0;}
+.cat-head{display:flex;align-items:center;justify-content:space-between;padding:0 14px;margin-bottom:10px;}
+.cat-title{font-size:15px;font-weight:800;}
+.cat-title::before{content:'';display:inline-block;width:4px;height:14px;background:var(--acc);border-radius:3px;margin-left:7px;vertical-align:-2px;}
+.cat-scroll{display:flex;gap:11px;overflow-x:auto;padding:0 14px 4px;}
+.match-card{flex-shrink:0;width:180px;border-radius:14px;overflow:hidden;background:var(--card);border:1px solid var(--border);
+  box-shadow:0 6px 18px -10px rgba(0,0,0,.7);}
+.match-card .thumb{position:relative;width:100%;aspect-ratio:16/9;background:#000;}
+.match-card .thumb img{width:100%;height:100%;object-fit:cover;}
+.mini-tag{position:absolute;top:7px;right:7px;background:var(--live);color:#fff;font-size:9px;font-weight:800;
+  padding:3px 7px;border-radius:6px;display:flex;align-items:center;gap:3px;}
+.mini-tag.upn{background:rgba(15,15,15,.78);backdrop-filter:blur(3px);}
+.mini-tag .bdot{width:4px;height:4px;}
+.card-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.95) 5%,rgba(0,0,0,.35) 55%,transparent 80%);}
+.card-title{position:absolute;bottom:6px;right:8px;left:8px;font-size:12.5px;font-weight:700;color:#fff;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+.match-card .foot{padding:7px 9px;display:flex;align-items:center;justify-content:space-between;}
+.match-card .comp{font-size:10px;color:var(--mute);}
+.empty-note{padding:20px 14px;color:var(--mute);font-size:13px;text-align:center;}
+
+/* ===== قائمة المباريات السابقة ===== */
+.fin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 14px;}
+.fin-item .thumb{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);}
+.fin-item .thumb img{width:100%;height:100%;object-fit:cover;}
+.round-badge{position:absolute;top:7px;right:7px;background:rgba(0,0,0,.75);color:#fff;font-size:10px;font-weight:800;
+  padding:3px 8px;border-radius:6px;}
+.fin-item .card-title{font-size:12px;bottom:7px;}
+
+/* ===== النافبار السفلي ===== */
+.nav-bar{position:absolute;bottom:0;left:0;right:0;height:64px;background:var(--card);border-top:1px solid var(--border);
+  display:flex;flex-shrink:0;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--mute);}
+.nav-item svg{width:22px;height:22px;fill:currentColor;}
+.nav-item span{font-size:11px;font-weight:700;}
+.nav-item.active{color:var(--acc);}
+
+/* ===== دعم الشاشات الكبيرة (تابلت/ديسكتوب) =====
+   قاعدة وحدة بسيطة بدون نقاط توقف متعددة — max-width + margin:auto يشتغلون بذكاء
+   لحالهم: على الجوال العرض الفعلي أصلاً أصغر من max-width فما يصير أي تغيير،
+   وعلى أي شاشة أكبر يتوسط تلقائيًا بعرض مريح بدون ما نحسب نقاط توقف يدوية. */
+html,body{background:#000;}
+#tickerBar{max-width:900px;margin:0 auto;left:0;right:0;}
+#app{max-width:900px;margin:0 auto;min-height:100%;
+  box-shadow:0 0 80px rgba(0,0,0,.7);}
+
